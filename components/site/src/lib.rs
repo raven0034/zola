@@ -675,9 +675,28 @@ impl Site {
     pub fn render_page(&self, page: &Page) -> Result<()> {
         let output = page.render_html(&self.tera, &self.config, &self.library.read().unwrap())?;
         let content = self.inject_livereload(output);
-        let components: Vec<&str> = page.path.split('/').collect();
-        let current_path =
-            self.write_content(&components, "index.html", content, !page.assets.is_empty())?;
+        let components: Vec<&str> = page.path.trim_matches('/').split('/').collect();
+
+        let tpl_name = match page.meta.template {
+            Some(ref l) => l,
+            None => "page.html",
+        };
+
+        let current_path = if tpl_name.ends_with(".html") {
+            self.write_content(&components, "index.html", content, !page.assets.is_empty())?
+        } else {
+            let (filename, dir_path) = components.split_last().expect("Page path is empty?!");
+
+            // Name the file <page>.<template ext>, so file.md templated with template.yml becomes file.yml
+            let fc: Vec<&str> = filename.split(".").collect();
+            let base_name = fc[0];
+
+            let tc: Vec<&str> = tpl_name.split(".").collect();
+            let ext = tc.last().expect("Page path is empty?!");
+            let target_path = format!("{base_name}.{ext}");
+
+            self.write_content(dir_path, &target_path, content, !page.assets.is_empty())?
+        };
 
         // Copy any asset we found previously into the same directory as the index.html
         for asset in &page.assets {
