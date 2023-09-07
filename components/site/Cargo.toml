@@ -8,6 +8,11 @@ include = ["src/**/*"]
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 
+# Same as Tera fork, for date parsing
+chrono = {version = "0.4.23", optional = true, default-features = false, features = ["std", "clock"]}
+chrono-tz = {version = "0.8", optional = true}
+chrono-english = "0.1.7"
+
 errors = { path = "../errors" }
 config = { path = "../config" }
 console = { path = "../console" }

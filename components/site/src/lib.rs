@@ -13,6 +13,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use libs::once_cell::sync::Lazy;
 use libs::rayon::prelude::*;
 use libs::tera::{Context, Tera};
+use libs::time::OffsetDateTime;
 use libs::walkdir::{DirEntry, WalkDir};
 
 use config::{get_config, Config, IndexFormat};
@@ -28,6 +29,12 @@ use utils::fs::{
 use utils::net::{get_available_port, is_external_link};
 use utils::templates::{render_template, ShortcodeDefinition};
 use utils::types::InsertAnchor;
+
+extern crate chrono;
+use chrono::prelude::*;
+
+extern crate chrono_english;
+use chrono_english::{parse_date_string, Dialect};
 
 pub static SITE_CONTENT: Lazy<Arc<RwLock<HashMap<RelativePathBuf, String>>>> =
     Lazy::new(|| Arc::new(RwLock::new(HashMap::new())));
@@ -184,6 +191,7 @@ impl Site {
         // when there is both a _index.md and index.md in the same folder
         let mut pages = Vec::new();
         let mut sections = HashSet::new();
+        let mut base_date: Option<OffsetDateTime> = None;
 
         loop {
             let entry: DirEntry = match dir_walker.next() {
@@ -196,6 +204,7 @@ impl Site {
                 None => continue,
                 Some(name) => name.to_str().unwrap(),
             };
+            println!("{file_name}");
 
             // ignore excluded content
             match &self.config.ignored_content_globset {
@@ -249,6 +258,17 @@ impl Site {
                     let section =
                         Section::from_file(index_file.path(), &self.config, &self.base_path)?;
                     sections.insert(section.components.join("/"));
+
+                    if let Some(base_val) = section.meta.extra.get("base_date") {
+                        let base = base_val.as_str().expect(&format!(
+                            "Base date is not a string for {}",
+                            section.components.join("/")
+                        ));
+                        if let Ok(date) = parse_date_string(base, Local::now(), Dialect::Uk()) {
+                            base_date = date.to_rfc3339()
+                            # to timeoffset
+                        }
+                    }
 
                     // if the section is drafted we can skip the entire dir
                     if section.meta.draft && !self.include_drafts {
