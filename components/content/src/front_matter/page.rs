@@ -1,12 +1,15 @@
 use std::collections::HashMap;
 
+use libs::chrono::{DateTime, Local};
 use libs::tera::{Map, Value};
+
 use serde::Deserialize;
 use time::format_description::well_known::Rfc3339;
 use time::macros::{format_description, time};
 use time::{Date, OffsetDateTime, PrimitiveDateTime};
 
 use errors::{bail, Result};
+use utils::date::{chrono_to_time_date, parse_human_date};
 use utils::de::{fix_toml_dates, from_toml_datetime};
 
 use crate::front_matter::split::RawFrontMatter;
@@ -124,13 +127,17 @@ impl PageFrontMatter {
 
     /// Converts the TOML datetime to a time::OffsetDateTime
     /// Also grabs the year/month/day tuple that will be used in serialization
-    pub fn date_to_datetime(&mut self) {
-        self.datetime = self.date.as_ref().map(|s| s.as_ref()).and_then(parse_datetime);
-        self.datetime_tuple = self.datetime.map(|dt| (dt.year(), dt.month().into(), dt.day()));
+    pub fn date_to_datetime(&mut self, base: Option<DateTime<Local>>) {
+        if let Some(date) = &self.date {
+            self.datetime = parse_human_date(date, base).map(chrono_to_time_date);
+            self.datetime_tuple = self.datetime.map(|dt| (dt.year(), dt.month().into(), dt.day()));
+        }
 
-        self.updated_datetime = self.updated.as_ref().map(|s| s.as_ref()).and_then(parse_datetime);
-        self.updated_datetime_tuple =
-            self.updated_datetime.map(|dt| (dt.year(), dt.month().into(), dt.day()));
+        if let Some(date) = &self.updated {
+            self.updated_datetime = parse_human_date(date, base).map(chrono_to_time_date);
+            self.updated_datetime_tuple =
+                self.updated_datetime.map(|dt| (dt.year(), dt.month().into(), dt.day()));
+        }
     }
 
     pub fn weight(&self) -> usize {
