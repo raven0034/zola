@@ -10,10 +10,10 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 
+use libs::chrono::{DateTime, Local};
 use libs::once_cell::sync::Lazy;
 use libs::rayon::prelude::*;
 use libs::tera::{Context, Tera};
-use libs::time::OffsetDateTime;
 use libs::walkdir::{DirEntry, WalkDir};
 
 use config::{get_config, Config, IndexFormat};
@@ -22,6 +22,7 @@ use errors::{anyhow, bail, Result};
 use libs::relative_path::RelativePathBuf;
 use std::time::Instant;
 use templates::{load_tera, render_redirect_template};
+use utils::date::parse_human_date;
 use utils::fs::{
     clean_site_output_folder, copy_directory, copy_file_if_needed, create_directory, create_file,
     ensure_directory_exists,
@@ -29,12 +30,6 @@ use utils::fs::{
 use utils::net::{get_available_port, is_external_link};
 use utils::templates::{render_template, ShortcodeDefinition};
 use utils::types::InsertAnchor;
-
-extern crate chrono;
-use chrono::prelude::*;
-
-extern crate chrono_english;
-use chrono_english::{parse_date_string, Dialect};
 
 pub static SITE_CONTENT: Lazy<Arc<RwLock<HashMap<RelativePathBuf, String>>>> =
     Lazy::new(|| Arc::new(RwLock::new(HashMap::new())));
@@ -191,7 +186,7 @@ impl Site {
         // when there is both a _index.md and index.md in the same folder
         let mut pages = Vec::new();
         let mut sections = HashSet::new();
-        let mut base_date: Option<OffsetDateTime> = None;
+        let mut base_date: Option<DateTime<Local>> = None;
 
         loop {
             let entry: DirEntry = match dir_walker.next() {
@@ -264,9 +259,8 @@ impl Site {
                             "Base date is not a string for {}",
                             section.components.join("/")
                         ));
-                        if let Ok(date) = parse_date_string(base, Local::now(), Dialect::Uk()) {
-                            base_date = date.to_rfc3339()
-                            # to timeoffset
+                        if let Some(date) = parse_human_date(base, None) {
+                            base_date = Some(date);
                         }
                     }
 
@@ -279,7 +273,7 @@ impl Site {
                     self.add_section(section, false)?;
                 }
             } else {
-                let page = Page::from_file(path, &self.config, &self.base_path)?;
+                let page = Page::from_file(path, &self.config, &self.base_path, base_date)?;
                 pages.push(page);
             }
         }
@@ -513,8 +507,12 @@ impl Site {
 
     /// Adds a page to the site and render it
     /// Only used in `zola serve --fast`
-    pub fn add_and_render_page(&mut self, path: &Path) -> Result<()> {
-        let page = Page::from_file(path, &self.config, &self.base_path)?;
+    pub fn add_and_render_page(
+        &mut self,
+        path: &Path,
+        base: Option<DateTime<Local>>,
+    ) -> Result<()> {
+        let page = Page::from_file(path, &self.config, &self.base_path, base)?;
         self.add_page(page, true)?;
         self.populate_sections();
         self.populate_taxonomies()?;

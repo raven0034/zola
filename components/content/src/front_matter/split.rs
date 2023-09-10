@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use errors::{bail, Context, Result};
+use libs::chrono::{DateTime, Local};
 use libs::once_cell::sync::Lazy;
 use libs::regex::Regex;
 use libs::{serde_yaml, toml};
@@ -89,9 +90,10 @@ pub fn split_section_content<'c>(
 pub fn split_page_content<'c>(
     file_path: &Path,
     content: &'c str,
+    base_date: Option<DateTime<Local>>,
 ) -> Result<(PageFrontMatter, &'c str)> {
     let (front_matter, content) = split_content(file_path, content)?;
-    let meta = PageFrontMatter::parse(&front_matter).with_context(|| {
+    let meta = PageFrontMatter::parse(&front_matter, base_date).with_context(|| {
         format!("Error when parsing front matter of section `{}`", file_path.to_string_lossy())
     })?;
     Ok((meta, content))
@@ -121,7 +123,7 @@ date: 2002-10-12
 Hello
 "#; "yaml")]
     fn can_split_page_content_valid(content: &str) {
-        let (front_matter, content) = split_page_content(Path::new(""), content).unwrap();
+        let (front_matter, content) = split_page_content(Path::new(""), content, None).unwrap();
         assert_eq!(content, "Hello\n");
         assert_eq!(front_matter.title.unwrap(), "Title");
     }
@@ -171,7 +173,7 @@ description: hey there
 date: 2002-10-12
 ---"#; "yaml no newline")]
     fn can_split_content_with_only_frontmatter_valid(content: &str) {
-        let (front_matter, content) = split_page_content(Path::new(""), content).unwrap();
+        let (front_matter, content) = split_page_content(Path::new(""), content, None).unwrap();
         assert_eq!(content, "");
         assert_eq!(front_matter.title.unwrap(), "Title");
     }
@@ -205,7 +207,7 @@ date: 2002-10-02T15:00:00Z
 ---
 ---"#, "---"; "yaml with minuses in content")]
     fn can_split_content_lazily(content: &str, expected: &str) {
-        let (front_matter, content) = split_page_content(Path::new(""), content).unwrap();
+        let (front_matter, content) = split_page_content(Path::new(""), content, None).unwrap();
         assert_eq!(content, expected);
         assert_eq!(front_matter.title.unwrap(), "Title");
     }
@@ -245,7 +247,7 @@ description: hey there
 date: 2002-10-12
 ----"#; "yaml too many dashes")]
     fn errors_if_cannot_locate_frontmatter(content: &str) {
-        let res = split_page_content(Path::new(""), content);
+        let res = split_page_content(Path::new(""), content, None);
         assert!(res.is_err());
     }
 }

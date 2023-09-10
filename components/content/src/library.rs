@@ -436,7 +436,7 @@ mod tests {
             PageSort::None => (),
             PageSort::Date(date) => {
                 page.meta.date = Some(date.to_owned());
-                page.meta.date_to_datetime();
+                page.meta.date_to_datetime(None);
             }
             PageSort::Title(title) => {
                 page.meta.title = Some(title.to_owned());

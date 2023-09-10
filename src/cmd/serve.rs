@@ -570,7 +570,8 @@ pub fn serve(
                                         let res = if filename == "_index.md" {
                                             site.add_and_render_section(&path)
                                         } else if filename.ends_with(".md") {
-                                            site.add_and_render_page(&path)
+                                            // TODO Make this date fetch base from parent section
+                                            site.add_and_render_page(&path, None)
                                         } else {
                                             // an asset changed? a folder renamed?
                                             // should we make it smarter so it doesn't reload the whole site?

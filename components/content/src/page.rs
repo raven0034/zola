@@ -2,6 +2,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use libs::chrono::{DateTime, Local};
 use libs::once_cell::sync::Lazy;
 use libs::regex::Regex;
 use libs::tera::{Context as TeraContext, Tera};
@@ -103,8 +104,9 @@ impl Page {
         content: &str,
         config: &Config,
         base_path: &Path,
+        base_date: Option<DateTime<Local>>,
     ) -> Result<Page> {
-        let (meta, content) = split_page_content(file_path, content)?;
+        let (meta, content) = split_page_content(file_path, content, base_date)?;
         let mut page = Page::new(file_path, meta, base_path);
 
         page.lang =
@@ -133,7 +135,7 @@ impl Page {
             }
             if page.meta.date.is_none() {
                 page.meta.date = Some(caps.name("datetime").unwrap().as_str().to_string());
-                page.meta.date_to_datetime();
+                page.meta.date_to_datetime(base_date);
             }
         }
 
@@ -191,10 +193,15 @@ impl Page {
     pub fn find_language(&mut self) {}
 
     /// Read and parse a .md file into a Page struct
-    pub fn from_file<P: AsRef<Path>>(path: P, config: &Config, base_path: &Path) -> Result<Page> {
+    pub fn from_file<P: AsRef<Path>>(
+        path: P,
+        config: &Config,
+        base_path: &Path,
+        base_date: Option<DateTime<Local>>,
+    ) -> Result<Page> {
         let path = path.as_ref();
         let content = read_file(path)?;
-        let mut page = Page::parse(path, &content, config, base_path)?;
+        let mut page = Page::parse(path, &content, config, base_path, base_date)?;
 
         if page.file.name == "index" {
             let parent_dir = path.parent().unwrap();
@@ -327,7 +334,7 @@ description = "hey there"
 slug = "hello-world"
 +++
 Hello world"#;
-        let res = Page::parse(Path::new("post.md"), content, &config, &PathBuf::new());
+        let res = Page::parse(Path::new("post.md"), content, &config, &PathBuf::new(), None);
         assert!(res.is_ok());
         let mut page = res.unwrap();
         page.render_markdown(
@@ -355,7 +362,7 @@ description = "hey there"
 authors = ["person@example.com (A. Person)"]
 +++
 Hello world"#;
-        let res = Page::parse(Path::new("post.md"), content, &config, &PathBuf::new());
+        let res = Page::parse(Path::new("post.md"), content, &config, &PathBuf::new(), None);
         assert!(res.is_ok());
         let mut page = res.unwrap();
         page.render_markdown(
@@ -380,8 +387,13 @@ Hello world"#;
     Hello world"#;
         let mut conf = Config::default();
         conf.base_url = "http://hello.com/".to_string();
-        let res =
-            Page::parse(Path::new("content/posts/intro/start.md"), content, &conf, &PathBuf::new());
+        let res = Page::parse(
+            Path::new("content/posts/intro/start.md"),
+            content,
+            &conf,
+            &PathBuf::new(),
+            None,
+        );
         assert!(res.is_ok());
         let page = res.unwrap();
         assert_eq!(page.path, "/posts/intro/hello-world/");
@@ -397,7 +409,7 @@ Hello world"#;
     +++
     Hello world"#;
         let config = Config::default();
-        let res = Page::parse(Path::new("start.md"), content, &config, &PathBuf::new());
+        let res = Page::parse(Path::new("start.md"), content, &config, &PathBuf::new(), None);
         assert!(res.is_ok());
         let page = res.unwrap();
         assert_eq!(page.path, "/hello-world/");
@@ -414,7 +426,7 @@ Hello world"#;
     Hello world"#;
         let mut config = Config::default();
         config.slugify.paths = SlugifyStrategy::On;
-        let res = Page::parse(Path::new("start.md"), content, &config, &PathBuf::new());
+        let res = Page::parse(Path::new("start.md"), content, &config, &PathBuf::new(), None);
         assert!(res.is_ok());
         let page = res.unwrap();
         assert_eq!(page.path, "/hello-world/");
@@ -431,7 +443,7 @@ Hello world"#;
     Hello world"#;
         let mut config = Config::default();
         config.slugify.paths = SlugifyStrategy::Safe;
-        let res = Page::parse(Path::new("start.md"), content, &config, &PathBuf::new());
+        let res = Page::parse(Path::new("start.md"), content, &config, &PathBuf::new(), None);
         assert!(res.is_ok());
         let page = res.unwrap();
         assert_eq!(page.path, "/日本/");
@@ -452,6 +464,7 @@ Hello world"#;
             content,
             &config,
             &PathBuf::new(),
+            None,
         );
         assert!(res.is_ok());
         let page = res.unwrap();
@@ -473,6 +486,7 @@ Hello world"#;
             content,
             &config,
             &PathBuf::new(),
+            None,
         );
         assert!(res.is_ok());
         let page = res.unwrap();
@@ -489,7 +503,8 @@ Hello world"#;
     slug = "hello-world"
     +++
     Hello world"#;
-        let res = Page::parse(Path::new("start.md"), content, &Config::default(), &PathBuf::new());
+        let res =
+            Page::parse(Path::new("start.md"), content, &Config::default(), &PathBuf::new(), None);
         assert!(res.is_err());
     }
 
@@ -497,8 +512,13 @@ Hello world"#;
     fn can_make_slug_from_non_slug_filename() {
         let mut config = Config::default();
         config.slugify.paths = SlugifyStrategy::On;
-        let res =
-            Page::parse(Path::new(" file with space.md"), "+++\n+++\n", &config, &PathBuf::new());
+        let res = Page::parse(
+            Path::new(" file with space.md"),
+            "+++\n+++\n",
+            &config,
+            &PathBuf::new(),
+            None,
+        );
         assert!(res.is_ok());
         let page = res.unwrap();
         assert_eq!(page.slug, "file-with-space");
@@ -509,7 +529,7 @@ Hello world"#;
     fn can_make_path_from_utf8_filename() {
         let mut config = Config::default();
         config.slugify.paths = SlugifyStrategy::Safe;
-        let res = Page::parse(Path::new("日本.md"), "+++\n+++\n", &config, &PathBuf::new());
+        let res = Page::parse(Path::new("日本.md"), "+++\n+++\n", &config, &PathBuf::new(), None);
         assert!(res.is_ok());
         let page = res.unwrap();
         assert_eq!(page.slug, "日本");
@@ -525,7 +545,7 @@ Hello world"#;
 Hello world
 <!-- more -->"#
             .to_string();
-        let res = Page::parse(Path::new("hello.md"), &content, &config, &PathBuf::new());
+        let res = Page::parse(Path::new("hello.md"), &content, &config, &PathBuf::new(), None);
         assert!(res.is_ok());
         let mut page = res.unwrap();
         page.render_markdown(
@@ -559,7 +579,7 @@ And here's another. [^3]
 
 [^3]: This is the third footnote."#
             .to_string();
-        let res = Page::parse(Path::new("hello.md"), &content, &config, &PathBuf::new());
+        let res = Page::parse(Path::new("hello.md"), &content, &config, &PathBuf::new(), None);
         assert!(res.is_ok());
         let mut page = res.unwrap();
         page.render_markdown(
@@ -590,7 +610,8 @@ And here's another. [^3]
         File::create(nested_path.join("graph.jpg")).unwrap();
         File::create(nested_path.join("fail.png")).unwrap();
 
-        let res = Page::from_file(nested_path.join("index.md").as_path(), &Config::default(), path);
+        let res =
+            Page::from_file(nested_path.join("index.md").as_path(), &Config::default(), path, None);
         assert!(res.is_ok());
         let page = res.unwrap();
         assert_eq!(page.file.parent, path.join("content").join("posts"));
@@ -614,7 +635,8 @@ And here's another. [^3]
         File::create(nested_path.join("graph.jpg")).unwrap();
         File::create(nested_path.join("fail.png")).unwrap();
 
-        let res = Page::from_file(nested_path.join("index.md").as_path(), &Config::default(), path);
+        let res =
+            Page::from_file(nested_path.join("index.md").as_path(), &Config::default(), path, None);
         assert!(res.is_ok());
         let page = res.unwrap();
         assert_eq!(page.file.parent, path.join("content").join("posts"));
@@ -638,7 +660,8 @@ And here's another. [^3]
         File::create(nested_path.join("graph.jpg")).unwrap();
         File::create(nested_path.join("fail.png")).unwrap();
 
-        let res = Page::from_file(nested_path.join("index.md").as_path(), &Config::default(), path);
+        let res =
+            Page::from_file(nested_path.join("index.md").as_path(), &Config::default(), path, None);
         assert!(res.is_ok());
         let page = res.unwrap();
         assert_eq!(page.file.parent, path.join("content").join("posts"));
@@ -664,7 +687,8 @@ And here's another. [^3]
         File::create(nested_path.join("graph.jpg")).unwrap();
         File::create(nested_path.join("fail.png")).unwrap();
 
-        let res = Page::from_file(nested_path.join("index.md").as_path(), &Config::default(), path);
+        let res =
+            Page::from_file(nested_path.join("index.md").as_path(), &Config::default(), path, None);
         assert!(res.is_ok());
         let page = res.unwrap();
         assert_eq!(page.file.parent, path.join("content").join("posts"));
@@ -693,7 +717,7 @@ And here's another. [^3]
         let mut config = Config::default();
         config.ignored_content_globset = Some(gsb.build().unwrap());
 
-        let res = Page::from_file(nested_path.join("index.md").as_path(), &config, path);
+        let res = Page::from_file(nested_path.join("index.md").as_path(), &config, path, None);
 
         assert!(res.is_ok());
         let page = res.unwrap();
@@ -716,7 +740,7 @@ And here's another. [^3]
         let file_path = articles_path.join("2021-07-29-sample-article-1.md");
         let mut f = File::create(&file_path).unwrap();
         f.write_all(b"+++\nslug=\"hey\"\n+++\n").unwrap();
-        let res = Page::from_file(&file_path, &config, path);
+        let res = Page::from_file(&file_path, &config, path, None);
         assert!(res.is_ok());
         let page = res.unwrap();
         assert_eq!(page.path, "/articles/hey/");
@@ -726,7 +750,7 @@ And here's another. [^3]
         create_dir(&dir_path).expect("create posts temp dir");
         let mut f = File::create(&dir_path.join("index.md")).unwrap();
         f.write_all(b"+++\nslug=\"ho\"\n+++\n").unwrap();
-        let res = Page::from_file(&dir_path.join("index.md"), &config, path);
+        let res = Page::from_file(&dir_path.join("index.md"), &config, path, None);
         assert!(res.is_ok());
         let page = res.unwrap();
         assert_eq!(page.path, "/articles/ho/");
@@ -741,7 +765,8 @@ And here's another. [^3]
 Hello world
 <!-- more -->"#
             .to_string();
-        let res = Page::parse(Path::new("2018-10-08_hello.md"), &content, &config, &PathBuf::new());
+        let res =
+            Page::parse(Path::new("2018-10-08_hello.md"), &content, &config, &PathBuf::new(), None);
         assert!(res.is_ok());
         let page = res.unwrap();
 
@@ -760,8 +785,13 @@ Hello world
 Hello world
 <!-- more -->"#
             .to_string();
-        let res =
-            Page::parse(Path::new("2018-10-08_ こんにちは.md"), &content, &config, &PathBuf::new());
+        let res = Page::parse(
+            Path::new("2018-10-08_ こんにちは.md"),
+            &content,
+            &config,
+            &PathBuf::new(),
+            None,
+        );
         assert!(res.is_ok());
         let page = res.unwrap();
 
@@ -778,8 +808,13 @@ Hello world
 Hello world
 <!-- more -->"#
             .to_string();
-        let res =
-            Page::parse(Path::new("2018-10-08 - hello.md"), &content, &config, &PathBuf::new());
+        let res = Page::parse(
+            Path::new("2018-10-08 - hello.md"),
+            &content,
+            &config,
+            &PathBuf::new(),
+            None,
+        );
         assert!(res.is_ok());
         let page = res.unwrap();
 
@@ -797,8 +832,13 @@ Hello world
 Hello world
 <!-- more -->"#
             .to_string();
-        let res =
-            Page::parse(Path::new("2018-10-08 - hello.md"), &content, &config, &PathBuf::new());
+        let res = Page::parse(
+            Path::new("2018-10-08 - hello.md"),
+            &content,
+            &config,
+            &PathBuf::new(),
+            None,
+        );
         assert!(res.is_ok());
         let page = res.unwrap();
 
@@ -820,6 +860,7 @@ Hello world
             &content,
             &config,
             &PathBuf::new(),
+            None,
         );
         assert!(res.is_ok());
         let page = res.unwrap();
@@ -844,6 +885,7 @@ Hello world
             &content,
             &config,
             &PathBuf::new(),
+            None,
         );
         assert!(res.is_ok());
         let page = res.unwrap();
@@ -862,7 +904,8 @@ date = 2018-09-09
 Hello world
 <!-- more -->"#
             .to_string();
-        let res = Page::parse(Path::new("2018-10-08_hello.md"), &content, &config, &PathBuf::new());
+        let res =
+            Page::parse(Path::new("2018-10-08_hello.md"), &content, &config, &PathBuf::new(), None);
         assert!(res.is_ok());
         let page = res.unwrap();
 
@@ -879,7 +922,7 @@ Hello world
 +++
 Bonjour le monde"#
             .to_string();
-        let res = Page::parse(Path::new("hello.fr.md"), &content, &config, &PathBuf::new());
+        let res = Page::parse(Path::new("hello.fr.md"), &content, &config, &PathBuf::new(), None);
         assert!(res.is_ok());
         let page = res.unwrap();
         assert_eq!(page.lang, "fr".to_string());
@@ -896,8 +939,13 @@ Bonjour le monde"#
 +++
 Bonjour le monde"#
             .to_string();
-        let res =
-            Page::parse(Path::new("2018-10-08_hello.fr.md"), &content, &config, &PathBuf::new());
+        let res = Page::parse(
+            Path::new("2018-10-08_hello.fr.md"),
+            &content,
+            &config,
+            &PathBuf::new(),
+            None,
+        );
         assert!(res.is_ok());
         let page = res.unwrap();
         assert_eq!(page.meta.date, Some("2018-10-08".to_string()));
@@ -916,7 +964,7 @@ path = "bonjour"
 +++
 Bonjour le monde"#
             .to_string();
-        let res = Page::parse(Path::new("hello.fr.md"), &content, &config, &PathBuf::new());
+        let res = Page::parse(Path::new("hello.fr.md"), &content, &config, &PathBuf::new(), None);
         assert!(res.is_ok());
         let page = res.unwrap();
         assert_eq!(page.lang, "fr".to_string());

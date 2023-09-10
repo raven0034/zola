@@ -23,7 +23,7 @@ pub struct PageFrontMatter {
     /// Description in <meta> that appears when linked, e.g. on twitter
     pub description: Option<String>,
     /// Updated date
-    #[serde(default, deserialize_with = "from_toml_datetime")]
+    #[serde(default)]
     pub updated: Option<String>,
     /// Datetime content was last updated
     #[serde(default, skip_deserializing)]
@@ -32,7 +32,7 @@ pub struct PageFrontMatter {
     #[serde(default, skip_deserializing)]
     pub updated_datetime_tuple: Option<(i32, u8, u8)>,
     /// Date if we want to order pages (ie blog post)
-    #[serde(default, deserialize_with = "from_toml_datetime")]
+    #[serde(default)]
     pub date: Option<String>,
     /// Datetime content was created
     #[serde(default, skip_deserializing)]
@@ -86,7 +86,10 @@ fn parse_datetime(d: &str) -> Option<OffsetDateTime> {
 }
 
 impl PageFrontMatter {
-    pub fn parse(raw: &RawFrontMatter) -> Result<PageFrontMatter> {
+    pub fn parse(
+        raw: &RawFrontMatter,
+        base_date: Option<DateTime<Local>>,
+    ) -> Result<PageFrontMatter> {
         let mut f: PageFrontMatter = raw.deserialize()?;
 
         if let Some(ref slug) = f.slug {
@@ -106,7 +109,7 @@ impl PageFrontMatter {
             _ => unreachable!("Got something other than a table in page extra"),
         };
 
-        f.date_to_datetime();
+        f.date_to_datetime(base_date);
 
         for terms in f.taxonomies.values() {
             for term in terms {
@@ -130,7 +133,11 @@ impl PageFrontMatter {
     pub fn date_to_datetime(&mut self, base: Option<DateTime<Local>>) {
         if let Some(date) = &self.date {
             self.datetime = parse_human_date(date, base).map(chrono_to_time_date);
+            self.date = self.datetime.map(|d| d.format(&Rfc3339).unwrap());
+            println!("{:?} {:?}", self.datetime, self.date);
             self.datetime_tuple = self.datetime.map(|dt| (dt.year(), dt.month().into(), dt.day()));
+        } else {
+            println!("No date for {:?}", self.path);
         }
 
         if let Some(date) = &self.updated {
@@ -181,7 +188,7 @@ mod tests {
     #[test_case(&RawFrontMatter::Toml(r#"  "#); "toml")]
     #[test_case(&RawFrontMatter::Toml(r#"  "#); "yaml")]
     fn can_have_empty_front_matter(content: &RawFrontMatter) {
-        let res = PageFrontMatter::parse(content);
+        let res = PageFrontMatter::parse(content, None);
         println!("{:?}", res);
         assert!(res.is_ok());
     }
@@ -195,7 +202,7 @@ title: Hello
 description: hey there
 "#); "yaml")]
     fn can_parse_valid_front_matter(content: &RawFrontMatter) {
-        let res = PageFrontMatter::parse(content);
+        let res = PageFrontMatter::parse(content, None);
         assert!(res.is_ok());
         let res = res.unwrap();
         assert_eq!(res.title.unwrap(), "Hello".to_string());
@@ -205,7 +212,7 @@ description: hey there
     #[test_case(&RawFrontMatter::Toml(r#"title = |\n"#); "toml")]
     #[test_case(&RawFrontMatter::Yaml(r#"title: |\n"#); "yaml")]
     fn errors_with_invalid_front_matter(content: &RawFrontMatter) {
-        let res = PageFrontMatter::parse(content);
+        let res = PageFrontMatter::parse(content, None);
         assert!(res.is_err());
     }
 
@@ -220,7 +227,7 @@ description: hey there
 slug: ""
 "#); "yaml")]
     fn errors_on_present_but_empty_slug(content: &RawFrontMatter) {
-        let res = PageFrontMatter::parse(content);
+        let res = PageFrontMatter::parse(content, None);
         assert!(res.is_err());
     }
 
@@ -235,7 +242,7 @@ description: hey there
 path: ""
 "#); "yaml")]
     fn errors_on_present_but_empty_path(content: &RawFrontMatter) {
-        let res = PageFrontMatter::parse(content);
+        let res = PageFrontMatter::parse(content, None);
         assert!(res.is_err());
     }
 
@@ -250,7 +257,7 @@ description: hey there
 date: 2016-10-10
 "#); "yaml")]
     fn can_parse_date_yyyy_mm_dd(content: &RawFrontMatter) {
-        let res = PageFrontMatter::parse(content).unwrap();
+        let res = PageFrontMatter::parse(content, None).unwrap();
         assert!(res.datetime.is_some());
         assert_eq!(res.datetime.unwrap(), datetime!(2016 - 10 - 10 0:00 UTC));
     }
@@ -266,7 +273,7 @@ description: hey there
 date: 2002-10-02T15:00:00Z
 "#); "yaml")]
     fn can_parse_date_rfc3339(content: &RawFrontMatter) {
-        let res = PageFrontMatter::parse(content).unwrap();
+        let res = PageFrontMatter::parse(content, None).unwrap();
         assert!(res.datetime.is_some());
         assert_eq!(res.datetime.unwrap(), datetime!(2002 - 10 - 02 15:00:00 UTC));
     }
@@ -282,7 +289,7 @@ description: hey there
 date: 2002-10-02T15:00:00
 "#); "yaml")]
     fn can_parse_date_rfc3339_without_timezone(content: &RawFrontMatter) {
-        let res = PageFrontMatter::parse(content).unwrap();
+        let res = PageFrontMatter::parse(content, None).unwrap();
         assert!(res.datetime.is_some());
         assert_eq!(res.datetime.unwrap(), datetime!(2002 - 10 - 02 15:00:00 UTC));
     }
@@ -298,7 +305,7 @@ description: hey there
 date: 2002-10-02 15:00:00+02:00
 "#); "yaml")]
     fn can_parse_date_rfc3339_with_space(content: &RawFrontMatter) {
-        let res = PageFrontMatter::parse(content).unwrap();
+        let res = PageFrontMatter::parse(content, None).unwrap();
         assert!(res.datetime.is_some());
         assert_eq!(res.datetime.unwrap(), datetime!(2002 - 10 - 02 15:00:00+02:00));
     }
@@ -314,7 +321,7 @@ description: hey there
 date: 2002-10-02 15:00:00
 "#); "yaml")]
     fn can_parse_date_rfc3339_with_space_without_timezone(content: &RawFrontMatter) {
-        let res = PageFrontMatter::parse(content).unwrap();
+        let res = PageFrontMatter::parse(content, None).unwrap();
         assert!(res.datetime.is_some());
         assert_eq!(res.datetime.unwrap(), datetime!(2002 - 10 - 02 15:00:00 UTC));
     }
@@ -330,7 +337,7 @@ description: hey there
 date: 2002-10-02T15:00:00.123456Z
 "#); "yaml")]
     fn can_parse_date_rfc3339_with_microseconds(content: &RawFrontMatter) {
-        let res = PageFrontMatter::parse(content).unwrap();
+        let res = PageFrontMatter::parse(content, None).unwrap();
         assert!(res.datetime.is_some());
         assert_eq!(res.datetime.unwrap(), datetime!(2002 - 10 - 02 15:00:00.123456 UTC));
     }
@@ -346,7 +353,7 @@ description: hey there
 date: 2002/10/12
 "#); "yaml")]
     fn cannot_parse_random_date_format(content: &RawFrontMatter) {
-        let res = PageFrontMatter::parse(content);
+        let res = PageFrontMatter::parse(content, None);
         assert!(res.is_err());
     }
 
@@ -361,7 +368,7 @@ description: hey there
 date: 2002-14-01
 "#); "yaml")]
     fn cannot_parse_invalid_date_format(content: &RawFrontMatter) {
-        let res = PageFrontMatter::parse(content);
+        let res = PageFrontMatter::parse(content, None);
         assert!(res.is_err());
     }
 
@@ -376,7 +383,7 @@ description: hey there
 date: "2016-10-10"
 "#); "yaml")]
     fn can_parse_valid_date_as_string(content: &RawFrontMatter) {
-        let res = PageFrontMatter::parse(content).unwrap();
+        let res = PageFrontMatter::parse(content, None).unwrap();
         assert!(res.date.is_some());
         assert!(res.datetime.is_some());
         assert_eq!(res.datetime.unwrap(), datetime!(2016 - 10 - 10 0:00 UTC));
@@ -393,7 +400,7 @@ description: hey there
 date: "2002-14-01"
 "#); "yaml")]
     fn cannot_parse_invalid_date_as_string(content: &RawFrontMatter) {
-        let res = PageFrontMatter::parse(content);
+        let res = PageFrontMatter::parse(content, None);
         assert!(res.is_err());
     }
 
@@ -412,7 +419,7 @@ extra:
     some-date: 2002-11-01
 "#); "yaml")]
     fn can_parse_dates_in_extra(content: &RawFrontMatter) {
-        let res = PageFrontMatter::parse(content);
+        let res = PageFrontMatter::parse(content, None);
         println!("{:?}", res);
         assert!(res.is_ok());
         assert_eq!(res.unwrap().extra["some-date"], to_value("2002-11-01").unwrap());
@@ -434,7 +441,7 @@ extra:
         some-date: 2002-11-01
 "#); "yaml")]
     fn can_parse_nested_dates_in_extra(content: &RawFrontMatter) {
-        let res = PageFrontMatter::parse(content);
+        let res = PageFrontMatter::parse(content, None);
         println!("{:?}", res);
         assert!(res.is_ok());
         assert_eq!(res.unwrap().extra["something"]["some-date"], to_value("2002-11-01").unwrap());
@@ -461,7 +468,7 @@ extra:
           name: "Who is the prime minister of Uganda?"
 "#); "yaml")]
     fn can_parse_fully_nested_dates_in_extra(content: &RawFrontMatter) {
-        let res = PageFrontMatter::parse(content);
+        let res = PageFrontMatter::parse(content, None);
         println!("{:?}", res);
         assert!(res.is_ok());
         assert_eq!(res.unwrap().extra["questions"][0]["date"], to_value("2020-05-03").unwrap());
@@ -485,7 +492,7 @@ taxonomies:
         - Dev
 "#); "yaml")]
     fn can_parse_taxonomies(content: &RawFrontMatter) {
-        let res = PageFrontMatter::parse(content);
+        let res = PageFrontMatter::parse(content, None);
         println!("{:?}", res);
         assert!(res.is_ok());
         let res2 = res.unwrap();
@@ -508,7 +515,7 @@ taxonomies:
 "#); "yaml")]
     fn errors_on_empty_taxonomy_term(content: &RawFrontMatter) {
         // https://github.com/getzola/zola/issues/2085
-        let res = PageFrontMatter::parse(content);
+        let res = PageFrontMatter::parse(content, None);
         println!("{:?}", res);
         assert!(res.is_err());
     }
@@ -523,7 +530,7 @@ authors:
     - person2@example.com (Person Two)
 "#); "yaml")]
     fn can_parse_authors(content: &RawFrontMatter) {
-        let res = PageFrontMatter::parse(content);
+        let res = PageFrontMatter::parse(content, None);
         assert!(res.is_ok());
         let res2 = res.unwrap();
         assert_eq!(res2.authors.len(), 2);
