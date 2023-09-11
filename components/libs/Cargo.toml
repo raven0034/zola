@@ -27,15 +27,15 @@ rayon = "1"
 regex = "1"
 relative-path = "1"
 reqwest = { version = "0.11", default-features = false, features = ["blocking"] }
-grass = {version = "0.12.1", default-features = false, features = ["random"]}
+grass = {version = "0.13.1", default-features = false, features = ["random"]}
 serde_json = "1"
 serde_yaml = "0.9"
 sha2 = "0.10"
 slug = "0.1"
 svg_metadata = "0.4"
 syntect = "5"
-tera = { git="https://github.com/ericthelemur/tera", features = ["preserve_order", "date-locale"] }
-# tera = { path="../../../tera", features = ["preserve_order", "date-locale"] }
+# tera = { git="https://github.com/ericthelemur/tera", features = ["preserve_order", "date-locale"] }
+tera = { path="../../../tera", features = ["preserve_order", "date-locale"] }
 termcolor = "1.0.4"
 time = "0.3"
 toml = "0.7"
