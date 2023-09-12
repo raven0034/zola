@@ -134,7 +134,6 @@ impl PageFrontMatter {
         if let Some(date) = &self.date {
             self.datetime = parse_human_date(date, base).map(chrono_to_time_date);
             self.date = self.datetime.map(|d| d.format(&Rfc3339).unwrap());
-            println!("{:?} {:?}", self.datetime, self.date);
             self.datetime_tuple = self.datetime.map(|dt| (dt.year(), dt.month().into(), dt.day()));
         } else {
             println!("No date for {:?}", self.path);

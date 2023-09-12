@@ -1203,9 +1203,9 @@ dependencies = [
 
 [[package]]
 name = "grass"
-version = "0.12.3"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4bfa010e6f9fe2f40727b4aedf67aa54e0439c57f855458efb1f43d730a028f"
+checksum = "7746cd9bf09f9bb7d98638774a70642000356f543898d9a352cd043f82744528"
 dependencies = [
  "grass_compiler",
 ]

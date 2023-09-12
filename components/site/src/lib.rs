@@ -199,8 +199,7 @@ impl Site {
                 None => continue,
                 Some(name) => name.to_str().unwrap(),
             };
-            println!("{file_name}");
-
+            
             // ignore excluded content
             match &self.config.ignored_content_globset {
                 Some(gs) => {
