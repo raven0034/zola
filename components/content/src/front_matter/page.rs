@@ -133,10 +133,13 @@ impl PageFrontMatter {
     pub fn date_to_datetime(&mut self, base: Option<DateTime<Local>>) {
         if let Some(date) = &self.date {
             self.datetime = parse_human_date(date, base).map(chrono_to_time_date);
-            self.date = self.datetime.map(|d| d.format(&Rfc3339).unwrap());
-            self.datetime_tuple = self.datetime.map(|dt| (dt.year(), dt.month().into(), dt.day()));
-        } else {
-            println!("No date for {:?}", self.path);
+            match self.datetime {
+                Some(dt) => {
+                    self.date = Some(dt.format(&Rfc3339).unwrap());
+                    self.datetime_tuple = Some((dt.year(), dt.month().into(), dt.day()));
+                },
+                None => println!("Date parse error for {:?}", self.slug)
+            }
         }
 
         if let Some(date) = &self.updated {
