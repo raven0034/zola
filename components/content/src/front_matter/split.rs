@@ -1,7 +1,8 @@
 use std::path::Path;
 
 use errors::{bail, Context, Result};
-use libs::chrono::{DateTime, Local};
+use libs::chrono::DateTime;
+use libs::chrono_tz::Tz;
 use libs::once_cell::sync::Lazy;
 use libs::regex::Regex;
 use libs::{serde_yaml, toml};
@@ -90,7 +91,7 @@ pub fn split_section_content<'c>(
 pub fn split_page_content<'c>(
     file_path: &Path,
     content: &'c str,
-    base_date: Option<DateTime<Local>>,
+    base_date: Option<DateTime<Tz>>,
 ) -> Result<(PageFrontMatter, &'c str)> {
     let (front_matter, content) = split_content(file_path, content)?;
     let meta = PageFrontMatter::parse(&front_matter, base_date).with_context(|| {

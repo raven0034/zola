@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
-use libs::chrono::{DateTime, Local};
+use libs::chrono::DateTime;
+use libs::chrono_tz::Tz;
 use libs::tera::{Map, Value};
 
 use serde::Deserialize;
@@ -88,7 +89,7 @@ fn parse_datetime(d: &str) -> Option<OffsetDateTime> {
 impl PageFrontMatter {
     pub fn parse(
         raw: &RawFrontMatter,
-        base_date: Option<DateTime<Local>>,
+        base_date: Option<DateTime<Tz>>,
     ) -> Result<PageFrontMatter> {
         let mut f: PageFrontMatter = raw.deserialize()?;
 
@@ -130,7 +131,7 @@ impl PageFrontMatter {
 
     /// Converts the TOML datetime to a time::OffsetDateTime
     /// Also grabs the year/month/day tuple that will be used in serialization
-    pub fn date_to_datetime(&mut self, base: Option<DateTime<Local>>) {
+    pub fn date_to_datetime(&mut self, base: Option<DateTime<Tz>>) {
         if let Some(date) = &self.date {
             self.datetime = parse_human_date(date, base).map(chrono_to_time_date);
             match self.datetime {

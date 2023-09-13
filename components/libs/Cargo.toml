@@ -48,6 +48,7 @@ webp = "0.2"
 # Same as Tera fork, for date parsing
 chrono = { version = "0.4.23" }
 chrono-english = "0.1.7"
+chrono-tz = "0.8.3"
 
 [features]
 # TODO: fix me, it doesn't pick up the reqwuest feature if not set as default

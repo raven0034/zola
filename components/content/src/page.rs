@@ -2,7 +2,8 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use libs::chrono::{DateTime, Local};
+use libs::chrono::DateTime;
+use libs::chrono_tz::Tz;
 use libs::once_cell::sync::Lazy;
 use libs::regex::Regex;
 use libs::tera::{Context as TeraContext, Tera};
@@ -104,7 +105,7 @@ impl Page {
         content: &str,
         config: &Config,
         base_path: &Path,
-        base_date: Option<DateTime<Local>>,
+        base_date: Option<DateTime<Tz>>,
     ) -> Result<Page> {
         let (meta, content) = split_page_content(file_path, content, base_date)?;
         let mut page = Page::new(file_path, meta, base_path);
@@ -197,7 +198,7 @@ impl Page {
         path: P,
         config: &Config,
         base_path: &Path,
-        base_date: Option<DateTime<Local>>,
+        base_date: Option<DateTime<Tz>>,
     ) -> Result<Page> {
         let path = path.as_ref();
         let content = read_file(path)?;

@@ -10,7 +10,8 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 
-use libs::chrono::{DateTime, Local};
+use libs::chrono::DateTime;
+use libs::chrono_tz::Tz;
 use libs::once_cell::sync::Lazy;
 use libs::rayon::prelude::*;
 use libs::tera::{Context, Tera};
@@ -186,7 +187,7 @@ impl Site {
         // when there is both a _index.md and index.md in the same folder
         let mut pages = Vec::new();
         let mut sections = HashSet::new();
-        let mut base_date: Option<DateTime<Local>> = None;
+        let mut base_date: Option<DateTime<Tz>> = None;
 
         loop {
             let entry: DirEntry = match dir_walker.next() {
@@ -509,7 +510,7 @@ impl Site {
     pub fn add_and_render_page(
         &mut self,
         path: &Path,
-        base: Option<DateTime<Local>>,
+        base: Option<DateTime<Tz>>,
     ) -> Result<()> {
         let page = Page::from_file(path, &self.config, &self.base_path, base)?;
         self.add_page(page, true)?;
