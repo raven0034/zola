@@ -20,6 +20,8 @@ time = "0.3"
 name = "zola"
 
 [dependencies]
+env_logger = "0.9"
+log = "0.4"
 clap = { version = "4", features = ["derive"] }
 clap_complete = "4"
 # Below is for the serve cmd
