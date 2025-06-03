@@ -28,6 +28,8 @@ clap_complete = "4"
 hyper = { version = "0.14.1", default-features = false, features = ["runtime", "server", "http2", "http1"] }
 tokio = { version = "1.0.1", default-features = false, features = ["rt", "fs", "time"] }
 time = { version = "0.3", features = ["formatting", "macros", "local-offset"] }
+chrono-english = { git = "https://github.com/raven0034/chrono-english.git", rev = "f1517ac" }
+tera = { git = "https://github.com/raven0034/tera.git", rev="9390c68" }
 notify = "4"
 ws = "0.9"
 ctrlc = "3"
@@ -72,3 +74,6 @@ debug = 0
 [package.metadata.winres]
 OriginalFilename = "zola.exe"
 InternalName = "zola"
+
+[patch.crates-io]
+chrono-english = { git = "https://github.com/raven0034/chrono-english.git", rev = "f1517ac" }
