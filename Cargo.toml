@@ -1,8 +1,8 @@
 [package]
 name = "zola"
-version = "0.17.2"
+version = "0.20.0"
 authors = ["Vincent Prouillet <hello@vincentprouillet.com>"]
-edition = "2018"
+edition = "2021"
 license = "MIT"
 readme = "README.md"
 description = "A fast static site generator with everything built-in"
@@ -29,9 +29,10 @@ time = { version = "0.3", features = ["formatting", "macros", "local-offset"] }
 chrono-english = { git = "https://github.com/raven0034/chrono-english.git", rev = "f1517ac" }
 tera = { git = "https://github.com/raven0034/tera.git", rev="9390c68" }
 notify = "4"
+notify-debouncer-full = "0.5"
 ws = "0.9"
 ctrlc = "3"
-open = "3"
+open = "5"
 pathdiff = "0.2"
 # For mimetype detection in serve mode
 mime_guess = "2.0"

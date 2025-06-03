@@ -1,9 +1,12 @@
 use errors::{anyhow, Context, Result};
-use libs::image::io::Reader as ImgReader;
+use libs::avif_parse::read_avif;
+use libs::image::ImageReader;
 use libs::image::{ImageFormat, ImageResult};
 use libs::svg_metadata::Metadata as SvgMetadata;
 use serde::Serialize;
 use std::ffi::OsStr;
+use std::fs::File;
+use std::io::BufReader;
 use std::path::Path;
 
 /// Size and format read cheaply with `image`'s `Reader`.
@@ -16,7 +19,7 @@ pub struct ImageMeta {
 
 impl ImageMeta {
     pub fn read(path: &Path) -> ImageResult<Self> {
-        let reader = ImgReader::open(path).and_then(ImgReader::with_guessed_format)?;
+        let reader = ImageReader::open(path).and_then(ImageReader::with_guessed_format)?;
         let format = reader.format();
         let size = reader.into_dimensions()?;
 
@@ -37,11 +40,16 @@ pub struct ImageMetaResponse {
     pub width: u32,
     pub height: u32,
     pub format: Option<&'static str>,
+    pub mime: Option<&'static str>,
 }
 
 impl ImageMetaResponse {
     pub fn new_svg(width: u32, height: u32) -> Self {
-        Self { width, height, format: Some("svg") }
+        Self { width, height, format: Some("svg"), mime: Some("text/svg+xml") }
+    }
+
+    pub fn new_avif(width: u32, height: u32) -> Self {
+        Self { width, height, format: Some("avif"), mime: Some("image/avif") }
     }
 }
 
@@ -51,6 +59,7 @@ impl From<ImageMeta> for ImageMetaResponse {
             width: im.size.0,
             height: im.size.1,
             format: im.format.and_then(|f| f.extensions_str().first()).copied(),
+            mime: im.format.map(|f| f.to_mime_type()),
         }
     }
 }
@@ -72,6 +81,15 @@ pub fn read_image_metadata<P: AsRef<Path>>(path: P) -> Result<ImageMetaResponse>
             }
             // this is not a typo, this returns the correct values for width and height.
             .map(|(h, w)| ImageMetaResponse::new_svg(w as u32, h as u32))
+        }
+        "avif" => {
+            let avif_data =
+                read_avif(&mut BufReader::new(File::open(path)?)).with_context(err_context)?;
+            let meta = avif_data.primary_item_metadata()?;
+            return Ok(ImageMetaResponse::new_avif(
+                meta.max_frame_width.get(),
+                meta.max_frame_height.get(),
+            ));
         }
         _ => ImageMeta::read(path).map(ImageMetaResponse::from).with_context(err_context),
     }

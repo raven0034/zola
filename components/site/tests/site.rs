@@ -10,6 +10,7 @@ use content::Page;
 use libs::ahash::AHashMap;
 use site::sitemap;
 use site::Site;
+use utils::types::InsertAnchor;
 
 #[test]
 fn can_parse_site() {
@@ -21,7 +22,7 @@ fn can_parse_site() {
     let library = site.library.read().unwrap();
 
     // Correct number of pages (sections do not count as pages, draft are ignored)
-    assert_eq!(library.pages.len(), 35);
+    assert_eq!(library.pages.len(), 36);
     let posts_path = path.join("content").join("posts");
 
     // Make sure the page with a url doesn't have any sections
@@ -136,6 +137,9 @@ fn can_build_site_without_live_reload() {
     assert!(file_exists!(public, "posts/with-assets/index.html"));
     assert!(file_exists!(public, "posts/no-section/simple/index.html"));
 
+    // "render = false" should not generate an index.html
+    assert!(!file_exists!(public, "posts/render/index.html"));
+
     // Sections
     assert!(file_exists!(public, "posts/index.html"));
     assert!(file_exists!(public, "posts/tutorials/index.html"));
@@ -233,7 +237,9 @@ fn can_build_site_without_live_reload() {
 #[test]
 fn can_build_site_with_live_reload_and_drafts() {
     let (site, _tmp_dir, public) = build_site_with_setup("test_site", |mut site| {
-        site.enable_live_reload(1000);
+        use std::net::IpAddr;
+        use std::str::FromStr;
+        site.enable_live_reload(IpAddr::from_str("127.0.0.1").unwrap(), 1000);
         site.include_drafts();
         (site, true)
     });
@@ -371,6 +377,31 @@ fn can_build_site_and_insert_anchor_links() {
         public,
         "posts/something-else/index.html",
         "<h1 id=\"title\"><a class=\"zola-anchor\" href=\"#title\""
+    ));
+}
+
+#[test]
+fn can_build_site_insert_anchor_links_none_by_default() {
+    let (_, _tmp_dir, public) = build_site("test_site");
+
+    assert!(Path::new(&public).exists());
+    // anchor link not inserted
+    assert!(file_contains!(public, "index.html", r#"<h1 id="heading-1">Heading 1</h1>"#));
+}
+
+#[test]
+fn can_build_site_and_insert_anchor_links_global_config() {
+    let (_, _tmp_dir, public) = build_site_with_setup("test_site", |mut site| {
+        site.config.markdown.insert_anchor_links = InsertAnchor::Right;
+        (site, true)
+    });
+
+    assert!(Path::new(&public).exists());
+    // anchor link inserted
+    assert!(file_contains!(
+        public,
+        "index.html",
+        r##"<h1 id="heading-1">Heading 1<a class="zola-anchor" href="#heading-1" aria-label="Anchor link for: heading-1">🔗</a></h1>"##
     ));
 }
 
@@ -571,6 +602,7 @@ fn can_build_site_with_pagination_for_index() {
 
 #[test]
 fn can_build_site_with_pagination_for_taxonomy() {
+    let mut nb_a_pages = 0;
     let (_, _tmp_dir, public) = build_site_with_setup("test_site", |mut site| {
         site.config.languages.get_mut("en").unwrap().taxonomies.push(TaxonomyConfig {
             name: "tags".to_string(),
@@ -587,6 +619,10 @@ fn can_build_site_with_pagination_for_taxonomy() {
 
             let pages_data = std::mem::replace(&mut library.pages, AHashMap::new());
             for (i, (_, mut page)) in pages_data.into_iter().enumerate() {
+                // Discard not rendered pages
+                if i % 2 == 0 && page.meta.render {
+                    nb_a_pages += 1;
+                }
                 page.meta.taxonomies = {
                     let mut taxonomies = HashMap::new();
                     taxonomies.insert(
@@ -604,7 +640,8 @@ fn can_build_site_with_pagination_for_taxonomy() {
         site.populate_taxonomies().unwrap();
         (site, false)
     });
-
+    let nb_a_pagers: usize =
+        if nb_a_pages % 2 == 0 { nb_a_pages / 2 } else { (nb_a_pages / 2) + 1 };
     assert!(&public.exists());
 
     assert!(file_exists!(public, "index.html"));
@@ -632,7 +669,7 @@ fn can_build_site_with_pagination_for_taxonomy() {
         "tags/a/page/1/index.html",
         "http-equiv=\"refresh\" content=\"0; url=https://replace-this-with-your-url.com/tags/a/\""
     ));
-    assert!(file_contains!(public, "tags/a/index.html", "Num pagers: 9"));
+    assert!(file_contains!(public, "tags/a/index.html", &format!("Num pagers: {nb_a_pagers}")));
     assert!(file_contains!(public, "tags/a/index.html", "Page size: 2"));
     assert!(file_contains!(public, "tags/a/index.html", "Current index: 1"));
     assert!(!file_contains!(public, "tags/a/index.html", "has_prev"));
@@ -642,11 +679,13 @@ fn can_build_site_with_pagination_for_taxonomy() {
         "tags/a/index.html",
         "First: https://replace-this-with-your-url.com/tags/a/"
     ));
+
     assert!(file_contains!(
         public,
         "tags/a/index.html",
-        "Last: https://replace-this-with-your-url.com/tags/a/page/9/"
+        &format!("Last: https://replace-this-with-your-url.com/tags/a/page/{nb_a_pagers}/")
     ));
+
     assert!(!file_contains!(public, "tags/a/index.html", "has_prev"));
 
     // sitemap contains the pager pages
@@ -680,6 +719,11 @@ fn can_build_feeds() {
     assert!(file_contains!(public, "posts/tutorials/programming/atom.xml", "Rust"));
     // It doesn't contain articles from other sections
     assert!(!file_contains!(public, "posts/tutorials/programming/atom.xml", "Extra Syntax"));
+
+    // Test Atom feed entry with 3 authors
+    assert!(file_contains!(public, "posts/tutorials/programming/atom.xml", "Foo Doe"));
+    assert!(file_contains!(public, "posts/tutorials/programming/atom.xml", "Bar Doe"));
+    assert!(file_contains!(public, "posts/tutorials/programming/atom.xml", "Baz Doe"));
 }
 
 #[test]
@@ -839,6 +883,32 @@ fn panics_on_invalid_external_domain() {
 
     // check the test site, this time without the invalid domain skip prefix, which should cause a
     // panic
+    site.config.enable_check_mode();
+    site.load().expect("link check test_site");
+}
+
+#[test]
+fn external_links_ignored_on_check() {
+    let (mut site, _tmp_dir, _public) = build_site("test_site");
+
+    // remove the invalid domain skip prefix
+    let i = site
+        .config
+        .link_checker
+        .skip_prefixes
+        .iter()
+        .position(|prefix| prefix == "http://invaliddomain")
+        .unwrap();
+    site.config.link_checker.skip_prefixes.remove(i);
+
+    // confirm the invalid domain skip prefix was removed
+    assert_eq!(site.config.link_checker.skip_prefixes, vec!["http://[2001:db8::]/"]);
+
+    // set a flag to skip external links check
+    site.skip_external_links_check();
+
+    // check the test site with all external links (including invalid domain) skipped, which should
+    // not cause a panic
     site.config.enable_check_mode();
     site.load().expect("link check test_site");
 }

@@ -33,10 +33,6 @@ static RFC3339_DATE: Lazy<Regex> = Lazy::new(|| {
     ).unwrap()
 });
 
-static FOOTNOTES_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r#"<sup class="footnote-reference"><a href=\s*.*?>\s*.*?</a></sup>"#).unwrap()
-});
-
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Page {
     /// All info about the actual file
@@ -240,10 +236,7 @@ impl Page {
         let res = render_content(&self.raw_content, &context)
             .with_context(|| format!("Failed to render content of {}", self.file.path.display()))?;
 
-        self.summary = res
-            .summary_len
-            .map(|l| &res.body[0..l])
-            .map(|s| FOOTNOTES_RE.replace_all(s, "").into_owned());
+        self.summary = res.summary;
         self.content = res.body;
         self.toc = res.toc;
         self.external_links = res.external_links;
@@ -317,8 +310,8 @@ mod tests {
     use std::path::{Path, PathBuf};
 
     use libs::globset::{Glob, GlobSetBuilder};
-    use libs::tera::Tera;
     use tempfile::tempdir;
+    use templates::ZOLA_TERA;
 
     use crate::Page;
     use config::{Config, LanguageOptions};
@@ -340,7 +333,7 @@ Hello world"#;
         let mut page = res.unwrap();
         page.render_markdown(
             &HashMap::default(),
-            &Tera::default(),
+            &ZOLA_TERA,
             &config,
             InsertAnchor::None,
             &HashMap::new(),
@@ -368,7 +361,7 @@ Hello world"#;
         let mut page = res.unwrap();
         page.render_markdown(
             &HashMap::default(),
-            &Tera::default(),
+            &ZOLA_TERA,
             &config,
             InsertAnchor::None,
             &HashMap::new(),
@@ -551,13 +544,13 @@ Hello world
         let mut page = res.unwrap();
         page.render_markdown(
             &HashMap::default(),
-            &Tera::default(),
+            &ZOLA_TERA,
             &config,
             InsertAnchor::None,
             &HashMap::new(),
         )
         .unwrap();
-        assert_eq!(page.summary, Some("<p>Hello world</p>\n".to_string()));
+        assert_eq!(page.summary, Some("<p>Hello world</p>".to_string()));
     }
 
     #[test]
@@ -576,7 +569,7 @@ And here's another. [^3]
 
 [^1]: This is the first footnote.
 
-[^2]: This is the secund footnote.
+[^2]: This is the second footnote.
 
 [^3]: This is the third footnote."#
             .to_string();
@@ -585,7 +578,7 @@ And here's another. [^3]
         let mut page = res.unwrap();
         page.render_markdown(
             &HashMap::default(),
-            &Tera::default(),
+            &ZOLA_TERA,
             &config,
             InsertAnchor::None,
             &HashMap::new(),
@@ -593,7 +586,7 @@ And here's another. [^3]
         .unwrap();
         assert_eq!(
             page.summary,
-            Some("<p>This page use <sup>1.5</sup> and has footnotes, here\'s one. </p>\n<p>Here's another. </p>\n".to_string())
+            Some("<p>This page use <sup>1.5</sup> and has footnotes, here\'s one. </p>\n<p>Here's another. </p>".to_string())
         );
     }
 

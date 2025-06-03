@@ -25,6 +25,7 @@ pub fn has_anchor(headings: &[Heading], anchor: &str) -> bool {
 /// If `recursive` is set to `true`, it will add all subdirectories assets as well. This should
 /// only be set when finding page assets currently.
 /// TODO: remove this flag once sections with assets behave the same as pages with assets
+/// The returned vector with assets is sorted in case-sensitive order (using `to_ascii_lowercase()`)
 pub fn find_related_assets(path: &Path, config: &Config, recursive: bool) -> Vec<PathBuf> {
     let mut assets = vec![];
 
@@ -50,12 +51,19 @@ pub fn find_related_assets(path: &Path, config: &Config, recursive: bool) -> Vec
         assets.retain(|p| !globset.is_match(p));
     }
 
+    assets.sort_by(|a, b| {
+        a.to_str().unwrap().to_ascii_lowercase().cmp(&b.to_str().unwrap().to_ascii_lowercase())
+    });
+
     assets
 }
 
 /// Get word count and estimated reading time
 pub fn get_reading_analytics(content: &str) -> (usize, usize) {
-    let word_count: usize = content.unicode_words().count();
+    // code fences "toggle" the state from non-code to code and back, so anything inbetween the
+    // first fence and the next can be ignored
+    let split = content.split("```");
+    let word_count = split.step_by(2).map(|section| section.unicode_words().count()).sum();
 
     // https://help.medium.com/hc/en-us/articles/214991667-Read-time
     // 275 seems a bit too high though
@@ -82,13 +90,31 @@ mod tests {
         create_dir(path.join("subdir")).expect("create subdir temp dir");
         File::create(path.join("subdir").join("index.md")).unwrap();
         File::create(path.join("subdir").join("example.js")).unwrap();
+        File::create(path.join("FFF.txt")).unwrap();
+        File::create(path.join("GRAPH.txt")).unwrap();
+        File::create(path.join("subdir").join("GGG.txt")).unwrap();
 
         let assets = find_related_assets(path, &Config::default(), true);
-        assert_eq!(assets.len(), 4);
-        assert_eq!(assets.iter().filter(|p| p.extension().unwrap_or_default() != "md").count(), 4);
+        assert_eq!(assets.len(), 7);
+        assert_eq!(assets.iter().filter(|p| p.extension().unwrap_or_default() != "md").count(), 7);
 
-        for asset in ["example.js", "graph.jpg", "fail.png", "subdir/example.js"] {
-            assert!(assets.iter().any(|p| p.strip_prefix(path).unwrap() == Path::new(asset)))
+        // Use case-insensitive ordering for testassets
+        let testassets = [
+            "example.js",
+            "fail.png",
+            "FFF.txt",
+            "graph.jpg",
+            "GRAPH.txt",
+            "subdir/example.js",
+            "subdir/GGG.txt",
+        ];
+        for (asset, testasset) in assets.iter().zip(testassets.iter()) {
+            assert!(
+                asset.strip_prefix(path).unwrap() == Path::new(testasset),
+                "Mismatch between asset {} and testasset {}",
+                asset.to_str().unwrap(),
+                testasset
+            );
         }
     }
 
@@ -104,12 +130,23 @@ mod tests {
         create_dir(path.join("subdir")).expect("create subdir temp dir");
         File::create(path.join("subdir").join("index.md")).unwrap();
         File::create(path.join("subdir").join("example.js")).unwrap();
-        let assets = find_related_assets(path, &Config::default(), false);
-        assert_eq!(assets.len(), 3);
-        assert_eq!(assets.iter().filter(|p| p.extension().unwrap_or_default() != "md").count(), 3);
+        File::create(path.join("FFF.txt")).unwrap();
+        File::create(path.join("GRAPH.txt")).unwrap();
+        File::create(path.join("subdir").join("GGG.txt")).unwrap();
 
-        for asset in ["example.js", "graph.jpg", "fail.png"] {
-            assert!(assets.iter().any(|p| p.strip_prefix(path).unwrap() == Path::new(asset)))
+        let assets = find_related_assets(path, &Config::default(), false);
+        assert_eq!(assets.len(), 5);
+        assert_eq!(assets.iter().filter(|p| p.extension().unwrap_or_default() != "md").count(), 5);
+
+        // Use case-insensitive ordering for testassets
+        let testassets = ["example.js", "fail.png", "FFF.txt", "graph.jpg", "GRAPH.txt"];
+        for (asset, testasset) in assets.iter().zip(testassets.iter()) {
+            assert!(
+                asset.strip_prefix(path).unwrap() == Path::new(testasset),
+                "Mismatch between asset {} and testasset {}",
+                asset.to_str().unwrap(),
+                testasset
+            );
         }
     }
     #[test]
@@ -206,5 +243,19 @@ mod tests {
         let (word_count, reading_time) = get_reading_analytics(&content);
         assert_eq!(word_count, 2000);
         assert_eq!(reading_time, 10);
+    }
+
+    #[test]
+    fn reading_analytics_no_code() {
+        let (word_count, reading_time) =
+            get_reading_analytics("hello world ``` code goes here ``` goodbye world");
+        assert_eq!(word_count, 4);
+        assert_eq!(reading_time, 1);
+
+        let (word_count, reading_time) = get_reading_analytics(
+            "hello world ``` code goes here ``` goodbye world ``` dangling fence",
+        );
+        assert_eq!(word_count, 4);
+        assert_eq!(reading_time, 1);
     }
 }

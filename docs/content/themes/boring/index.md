@@ -3,11 +3,14 @@
 title = "boring"
 description = "A minimal theme"
 template = "theme.html"
-date = 2023-08-20T14:37:38+02:00
+date = 2023-11-16T12:53:23+05:30
+
+[taxonomies]
+theme-tags = []
 
 [extra]
-created = 2023-08-20T14:37:38+02:00
-updated = 2023-08-20T14:37:38+02:00
+created = 2023-11-16T12:53:23+05:30
+updated = 2023-11-16T12:53:23+05:30
 repository = "https://github.com/ssiyad/boring.git"
 homepage = "https://github.com/ssiyad/boring"
 minimum_version = "0.16.0"

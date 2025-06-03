@@ -16,7 +16,7 @@ fn assert_processed_path_matches(path: &str, prefix: &str, extension: &str) {
     assert!(filename.ends_with(&suffix), "Path `{}` doesn't end with `{}`", path, suffix);
 }
 
-static CONFIG: &str = r#"
+const CONFIG: &str = r#"
 title = "imageproc integration tests"
 base_url = "https://example.com"
 compile_sass = false
@@ -128,6 +128,11 @@ fn resize_image_png_webp() {
 }
 
 #[test]
+fn resize_image_png_avif() {
+    image_op_test("png.png", "scale", Some(150), Some(150), "avif", "avif", 150, 150, 300, 380);
+}
+
+#[test]
 fn resize_image_webp_jpg() {
     image_op_test("webp.webp", "scale", Some(150), Some(150), "auto", "jpg", 150, 150, 300, 380);
 }
@@ -136,7 +141,12 @@ fn resize_image_webp_jpg() {
 fn read_image_metadata_jpg() {
     assert_eq!(
         image_meta_test("jpg.jpg"),
-        ImageMetaResponse { width: 300, height: 380, format: Some("jpg") }
+        ImageMetaResponse {
+            width: 300,
+            height: 380,
+            format: Some("jpg"),
+            mime: Some("image/jpeg")
+        }
     );
 }
 
@@ -144,7 +154,7 @@ fn read_image_metadata_jpg() {
 fn read_image_metadata_png() {
     assert_eq!(
         image_meta_test("png.png"),
-        ImageMetaResponse { width: 300, height: 380, format: Some("png") }
+        ImageMetaResponse { width: 300, height: 380, format: Some("png"), mime: Some("image/png") }
     );
 }
 
@@ -152,7 +162,12 @@ fn read_image_metadata_png() {
 fn read_image_metadata_svg() {
     assert_eq!(
         image_meta_test("svg.svg"),
-        ImageMetaResponse { width: 300, height: 300, format: Some("svg") }
+        ImageMetaResponse {
+            width: 300,
+            height: 300,
+            format: Some("svg"),
+            mime: Some("text/svg+xml")
+        }
     );
 }
 
@@ -160,7 +175,25 @@ fn read_image_metadata_svg() {
 fn read_image_metadata_webp() {
     assert_eq!(
         image_meta_test("webp.webp"),
-        ImageMetaResponse { width: 300, height: 380, format: Some("webp") }
+        ImageMetaResponse {
+            width: 300,
+            height: 380,
+            format: Some("webp"),
+            mime: Some("image/webp")
+        }
+    );
+}
+
+#[test]
+fn read_image_metadata_avif() {
+    assert_eq!(
+        image_meta_test("avif.avif"),
+        ImageMetaResponse {
+            width: 300,
+            height: 380,
+            format: Some("avif"),
+            mime: Some("image/avif")
+        }
     );
 }
 
@@ -232,4 +265,26 @@ fn check_img(img: DynamicImage) -> bool {
         && img.get_pixel(0, 15)[2] > 250
     // bottom right is white
         && img.get_pixel(15, 15).channels() == [255, 255, 255, 255]
+}
+
+#[test]
+fn asymmetric_resize_with_exif_orientations() {
+    // No exif metadata
+    image_op_test("exif_0.jpg", "scale", Some(16), Some(32), "auto", "jpg", 16, 32, 16, 16);
+    // 1: Horizontal (normal)
+    image_op_test("exif_1.jpg", "scale", Some(16), Some(32), "auto", "jpg", 16, 32, 16, 16);
+    // 2: Mirror horizontal
+    image_op_test("exif_2.jpg", "scale", Some(16), Some(32), "auto", "jpg", 16, 32, 16, 16);
+    // 3: Rotate 180
+    image_op_test("exif_3.jpg", "scale", Some(16), Some(32), "auto", "jpg", 16, 32, 16, 16);
+    // 4: Mirror vertical
+    image_op_test("exif_4.jpg", "scale", Some(16), Some(32), "auto", "jpg", 16, 32, 16, 16);
+    // 5: Mirror horizontal and rotate 270 CW
+    image_op_test("exif_5.jpg", "scale", Some(16), Some(32), "auto", "jpg", 16, 32, 16, 16);
+    // 6: Rotate 90 CW
+    image_op_test("exif_6.jpg", "scale", Some(16), Some(32), "auto", "jpg", 16, 32, 16, 16);
+    // 7: Mirror horizontal and rotate 90 CW
+    image_op_test("exif_7.jpg", "scale", Some(16), Some(32), "auto", "jpg", 16, 32, 16, 16);
+    // 8: Rotate 270 CW
+    image_op_test("exif_8.jpg", "scale", Some(16), Some(32), "auto", "jpg", 16, 32, 16, 16);
 }

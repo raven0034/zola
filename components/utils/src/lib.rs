@@ -2,6 +2,7 @@ pub mod anchors;
 pub mod date;
 pub mod de;
 pub mod fs;
+pub mod globs;
 pub mod net;
 pub mod site;
 pub mod slugs;

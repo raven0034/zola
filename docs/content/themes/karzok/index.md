@@ -3,11 +3,14 @@
 title = "karzok"
 description = "The theme for launching fast documentation sites"
 template = "theme.html"
-date = 2023-08-20T14:37:38+02:00
+date = 2024-07-18T16:03:24Z
+
+[taxonomies]
+theme-tags = []
 
 [extra]
-created = 2023-08-20T14:37:38+02:00
-updated = 2023-08-20T14:37:38+02:00
+created = 2024-07-18T16:03:24Z
+updated = 2024-07-18T16:03:24Z
 repository = "https://github.com/kogeletey/karzok.git"
 homepage = "https://github.com/kogeletey/karzok"
 minimum_version = "0.15.0"

@@ -160,7 +160,10 @@ pub struct SerializingSection<'a> {
     subsections: Vec<&'a str>,
     translations: Vec<TranslatedContent<'a>>,
     backlinks: Vec<BackLink<'a>>,
-    generate_feed: bool,
+    generate_feeds: bool,
+    transparent: bool,
+    paginate_by: &'a Option<usize>,
+    paginate_reversed: bool,
 }
 
 #[derive(Debug)]
@@ -219,11 +222,14 @@ impl<'a> SerializingSection<'a> {
             reading_time: section.reading_time,
             assets: &section.serialized_assets,
             lang: &section.lang,
-            generate_feed: section.meta.generate_feed,
+            generate_feeds: section.meta.generate_feeds,
+            transparent: section.meta.transparent,
             pages,
             subsections,
             translations,
             backlinks,
+            paginate_by: &section.meta.paginate_by,
+            paginate_reversed: section.meta.paginate_reversed,
         }
     }
 }

@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use cli::{Cli, Command};
+use errors::anyhow;
 use utils::net::{get_available_port, port_is_available};
 
 use clap::{CommandFactory, Parser};
@@ -9,27 +10,44 @@ use time::UtcOffset;
 
 mod cli;
 mod cmd;
+mod fs_utils;
 mod messages;
 mod prompt;
 
 fn get_config_file_path(dir: &Path, config_path: &Path) -> (PathBuf, PathBuf) {
-    let root_dir = dir
-        .ancestors()
-        .find(|a| a.join(config_path).exists())
-        .unwrap_or_else(|| panic!("could not find directory containing config file"));
+    let root_dir = dir.ancestors().find(|a| a.join(config_path).exists()).unwrap_or_else(|| {
+        messages::unravel_errors(
+            "",
+            &anyhow!(
+                "{} not found in current directory or ancestors, current_dir is {}",
+                config_path.display(),
+                dir.display()
+            ),
+        );
+        std::process::exit(1);
+    });
 
-    // if we got here we found root_dir so config file should exist so we can unwrap safely
-    let config_file = root_dir
-        .join(config_path)
-        .canonicalize()
-        .unwrap_or_else(|_| panic!("could not find directory containing config file"));
+    // if we got here we found root_dir so config file should exist so we could theoretically unwrap safely
+    let config_file_uncanonicalized = root_dir.join(config_path);
+    let config_file = config_file_uncanonicalized.canonicalize().unwrap_or_else(|e| {
+        messages::unravel_errors(
+            &format!("Could not find canonical path of {}", config_file_uncanonicalized.display()),
+            &e.into(),
+        );
+        std::process::exit(1);
+    });
+
     (root_dir.to_path_buf(), config_file)
 }
 
 fn main() {
     let cli = Cli::parse();
-    let cli_dir: PathBuf = cli.root.canonicalize().unwrap_or_else(|_| {
-        panic!("Could not find canonical path of root dir: {}", cli.root.display())
+    let cli_dir: PathBuf = cli.root.canonicalize().unwrap_or_else(|e| {
+        messages::unravel_errors(
+            &format!("Could not find canonical path of root dir: {}", cli.root.display()),
+            &e.into(),
+        );
+        std::process::exit(1);
     });
 
     match cli.command {
@@ -39,7 +57,7 @@ fn main() {
                 std::process::exit(1);
             }
         }
-        Command::Build { base_url, output_dir, force, drafts } => {
+        Command::Build { base_url, output_dir, force, drafts, minify } => {
             console::info("Building site...");
             let start = Instant::now();
             let (root_dir, config_file) = get_config_file_path(&cli_dir, &cli.config);
@@ -50,6 +68,7 @@ fn main() {
                 output_dir.as_deref(),
                 force,
                 drafts,
+                minify,
             ) {
                 Ok(()) => messages::report_elapsed_time(start),
                 Err(e) => {
@@ -62,19 +81,22 @@ fn main() {
             interface,
             mut port,
             output_dir,
+            force,
             base_url,
             drafts,
             open,
+            store_html,
             fast,
             no_port_append,
+            extra_watch_path,
         } => {
-            if port != 1111 && !port_is_available(port) {
+            if port != 1111 && !port_is_available(interface, port) {
                 console::error("The requested port is not available");
                 std::process::exit(1);
             }
 
-            if !port_is_available(port) {
-                port = get_available_port(1111).unwrap_or_else(|| {
+            if !port_is_available(interface, port) {
+                port = get_available_port(interface, 1111).unwrap_or_else(|| {
                     console::error("No port available");
                     std::process::exit(1);
                 });
@@ -84,26 +106,29 @@ fn main() {
             console::info("Building site...");
             if let Err(e) = cmd::serve(
                 &root_dir,
-                &interface,
+                interface,
                 port,
                 output_dir.as_deref(),
-                &base_url,
+                force,
+                base_url.as_deref(),
                 &config_file,
                 open,
                 drafts,
+                store_html,
                 fast,
                 no_port_append,
                 UtcOffset::current_local_offset().unwrap_or(UtcOffset::UTC),
+                extra_watch_path,
             ) {
                 messages::unravel_errors("Failed to serve the site", &e);
                 std::process::exit(1);
             }
         }
-        Command::Check { drafts } => {
+        Command::Check { drafts, skip_external_links } => {
             console::info("Checking site...");
             let start = Instant::now();
             let (root_dir, config_file) = get_config_file_path(&cli_dir, &cli.config);
-            match cmd::check(&root_dir, &config_file, None, None, drafts) {
+            match cmd::check(&root_dir, &config_file, None, None, drafts, skip_external_links) {
                 Ok(()) => messages::report_elapsed_time(start),
                 Err(e) => {
                     messages::unravel_errors("Failed to check the site", &e);

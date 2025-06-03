@@ -7,6 +7,7 @@
 pub use ahash;
 pub use ammonia;
 pub use atty;
+pub use avif_parse;
 pub use base64;
 pub use csv;
 pub use elasticlunr;
@@ -23,6 +24,7 @@ pub use num_format;
 pub use once_cell;
 pub use percent_encoding;
 pub use pulldown_cmark;
+pub use pulldown_cmark_escape;
 pub use quickxml_to_serde;
 pub use rayon;
 pub use regex;

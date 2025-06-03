@@ -3,12 +3,15 @@
 title = "ataraxia"
 description = "A personal theme focused on ease of reading."
 template = "theme.html"
-date = 2023-08-20T14:37:38+02:00
+date = 2023-04-22T22:26:07-05:00
+
+[taxonomies]
+theme-tags = []
 
 [extra]
-created = 2023-08-20T14:37:38+02:00
-updated = 2023-08-20T14:37:38+02:00
-repository = "https://github.com/gersonbdev/ataraxia-zola"
+created = 2023-04-22T22:26:07-05:00
+updated = 2023-04-22T22:26:07-05:00
+repository = "https://github.com/gersonbdev/ataraxia-zola.git"
 homepage = "https://github.com/gersonbenavides/ataraxia-zola"
 minimum_version = "0.16.0"
 license = "MPL-2.0"

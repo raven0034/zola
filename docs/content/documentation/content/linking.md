@@ -6,7 +6,7 @@ weight = 50
 ## Heading id and anchor insertion
 While rendering the Markdown content, a unique id will automatically be assigned to each heading. 
 This id is created by converting the heading text to a [slug](https://en.wikipedia.org/wiki/Semantic_URL#Slug) if `slugify.anchors` is set to `"on"` (the default).
-If `slugify.paths` is set to `"safe"`, whitespaces are replaced by `_` and the following characters are stripped: `#`, `%`, `<`, `>`, `[`, `]`, `(`, `)`, \`, `^`, `{`, `|`, `}`.
+If `slugify.paths` is set to `"safe"`, whitespaces are replaced by `-` and the following characters are stripped: `#`, `%`, `<`, `>`, `[`, `]`, `(`, `)`, \`, `^`, `{`, `|`, `}`.
 If `slugify.paths` is set to `"off"`, no modifications are made, and you may be left with nominally illegal ids.
 A number is appended at the end if the slug already exists for that article.
 For example:
@@ -34,7 +34,7 @@ links working.
 It is possible to have Zola automatically insert anchor links next to the heading, as you can see on this documentation
 if you hover a title or covering the full heading text.
 
-This option is set at the section level: the `insert_anchor_links` variable on the
+This option is set in the global [`config.toml`](@/documentation/getting-started/configuration.md)'s `[markdown]` section and can be overridden at the section level with the `insert_anchor_links` variable on the
 [section front matter page](@/documentation/content/section.md#front-matter).
 
 The default template is very basic and will need CSS tweaks in your project to look decent.

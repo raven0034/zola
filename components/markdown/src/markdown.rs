@@ -1,28 +1,45 @@
+use std::collections::HashMap;
 use std::fmt::Write;
 
+use crate::markdown::cmark::CowStr;
 use errors::bail;
 use libs::gh_emoji::Replacer as EmojiReplacer;
 use libs::once_cell::sync::Lazy;
 use libs::pulldown_cmark as cmark;
+use libs::pulldown_cmark_escape as cmark_escape;
 use libs::tera;
 use utils::net::is_external_link;
 
 use crate::context::RenderContext;
 use errors::{Context, Error, Result};
-use libs::pulldown_cmark::escape::escape_html;
-use libs::regex::Regex;
+use libs::pulldown_cmark_escape::escape_html;
+use libs::regex::{Regex, RegexBuilder};
 use utils::site::resolve_internal_link;
 use utils::slugs::slugify_anchors;
 use utils::table_of_contents::{make_table_of_contents, Heading};
 use utils::types::InsertAnchor;
 
-use self::cmark::{Event, LinkType, Options, Parser, Tag};
+use self::cmark::{Event, LinkType, Options, Parser, Tag, TagEnd};
 use crate::codeblock::{CodeBlock, FenceSettings};
 use crate::shortcode::{Shortcode, SHORTCODE_PLACEHOLDER};
 
 const CONTINUE_READING: &str = "<span id=\"continue-reading\"></span>";
+const SUMMARY_CUTOFF_TEMPLATE: &str = "summary-cutoff.html";
 const ANCHOR_LINK_TEMPLATE: &str = "anchor-link.html";
 static EMOJI_REPLACER: Lazy<EmojiReplacer> = Lazy::new(EmojiReplacer::new);
+
+/// Set as a regex to help match some extra cases. This way, spaces and case don't matter.
+static MORE_DIVIDER_RE: Lazy<Regex> = Lazy::new(|| {
+    RegexBuilder::new(r#"<!--\s*more\s*-->"#)
+        .case_insensitive(true)
+        .dot_matches_new_line(true)
+        .build()
+        .unwrap()
+});
+
+static FOOTNOTES_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r#"<sup class="footnote-reference"><a href=\s*.*?>\s*.*?</a></sup>"#).unwrap()
+});
 
 /// Although there exists [a list of registered URI schemes][uri-schemes], a link may use arbitrary,
 /// private schemes. This regex checks if the given string starts with something that just looks
@@ -66,7 +83,7 @@ fn is_colocated_asset_link(link: &str) -> bool {
 #[derive(Debug)]
 pub struct Rendered {
     pub body: String,
-    pub summary_len: Option<usize>,
+    pub summary: Option<String>,
     pub toc: Vec<Heading>,
     /// Links to site-local pages: relative path plus optional anchor target.
     pub internal_links: Vec<(String, Option<String>)>,
@@ -211,15 +228,15 @@ fn get_heading_refs(events: &[Event]) -> Vec<HeadingRef> {
 
     for (i, event) in events.iter().enumerate() {
         match event {
-            Event::Start(Tag::Heading(level, anchor, classes)) => {
+            Event::Start(Tag::Heading { level, id, classes, .. }) => {
                 heading_refs.push(HeadingRef::new(
                     i,
                     *level as u32,
-                    anchor.map(|a| a.to_owned()),
+                    id.clone().map(|a| a.to_string()),
                     &classes.iter().map(|x| x.to_string()).collect::<Vec<_>>(),
                 ));
             }
-            Event::End(Tag::Heading(_, _, _)) => {
+            Event::End(TagEnd::Heading { .. }) => {
                 heading_refs.last_mut().expect("Heading end before start?").end_idx = i;
             }
             _ => (),
@@ -227,6 +244,159 @@ fn get_heading_refs(events: &[Event]) -> Vec<HeadingRef> {
     }
 
     heading_refs
+}
+
+fn convert_footnotes_to_github_style(old_events: &mut Vec<Event>) {
+    let events = std::mem::take(old_events);
+    // step 1: We need to extract footnotes from the event stream and tweak footnote references
+
+    // footnotes bodies are stored in a stack of vectors, because it is possible to have footnotes
+    // inside footnotes
+    let mut footnote_bodies_stack = Vec::new();
+    let mut footnotes = Vec::new();
+    // this will allow to create a multiple back references
+    let mut footnote_numbers = HashMap::new();
+    let filtered_events = events.into_iter().filter_map(|event| {
+        match event {
+            // New footnote definition is pushed to the stack
+            Event::Start(Tag::FootnoteDefinition(_)) => {
+                footnote_bodies_stack.push(vec![event]);
+                None
+            }
+            // The topmost footnote definition is popped from the stack
+            Event::End(TagEnd::FootnoteDefinition) => {
+                // unwrap will never fail, because Tag::FootnoteDefinition always comes before
+                // TagEnd::FootnoteDefinition
+                let mut footnote_body = footnote_bodies_stack.pop().unwrap();
+                footnote_body.push(event);
+                footnotes.push(footnote_body);
+                None
+            }
+            Event::FootnoteReference(name) => {
+                // n will be a unique index of the footnote
+                let n = footnote_numbers.len() + 1;
+                // nr is a number of references to this footnote
+                let (n, nr) = footnote_numbers.entry(name.clone()).or_insert((n, 0usize));
+                *nr += 1;
+                let reference = Event::Html(format!(r##"<sup class="footnote-reference" id="fr-{name}-{nr}"><a href="#fn-{name}">{n}</a></sup>"##).into());
+
+                if footnote_bodies_stack.is_empty() {
+                    // we are in the main text, just output the reference
+                    Some(reference)
+                } else {
+                    // we are inside other footnote, we have to push that reference into that
+                    // footnote
+                    footnote_bodies_stack.last_mut().unwrap().push(reference);
+                    None
+                }
+            }
+            _ if !footnote_bodies_stack.is_empty() => {
+                footnote_bodies_stack.last_mut().unwrap().push(event);
+                None
+            }
+            _ => Some(event),
+        }
+    }
+    );
+
+    old_events.extend(filtered_events);
+
+    if footnotes.is_empty() {
+        return;
+    }
+
+    old_events
+        .push(Event::Html("<footer class=\"footnotes\">\n<ol class=\"footnotes-list\">\n".into()));
+
+    // Step 2: retain only footnotes which was actually referenced
+    footnotes.retain(|f| match f.first() {
+        Some(Event::Start(Tag::FootnoteDefinition(name))) => {
+            footnote_numbers.get(name).unwrap_or(&(0, 0)).1 != 0
+        }
+        _ => false,
+    });
+
+    // Step 3: Sort footnotes in the order of their appearance
+    footnotes.sort_by_cached_key(|f| match f.first() {
+        Some(Event::Start(Tag::FootnoteDefinition(name))) => {
+            footnote_numbers.get(name).unwrap_or(&(0, 0)).0
+        }
+        _ => unreachable!(),
+    });
+
+    // Step 4: Add backreferences to footnotes
+    let footnotes = footnotes.into_iter().flat_map(|fl| {
+        // To write backrefs, the name needs kept until the end of the footnote definition.
+        let mut name = CowStr::from("");
+        // Backrefs are included in the final paragraph of the footnote, if it's normal text.
+        // For example, this DOM can be produced:
+        //
+        // Markdown:
+        //
+        //     five [^feet].
+        //
+        //     [^feet]:
+        //         A foot is defined, in this case, as 0.3048 m.
+        //
+        //         Historically, the foot has not been defined this way, corresponding to many
+        //         subtly different units depending on the location.
+        //
+        // HTML:
+        //
+        //     <p>five <sup class="footnote-reference" id="fr-feet-1"><a href="#fn-feet">1</a></sup>.</p>
+        //
+        //     <ol class="footnotes-list">
+        //     <li id="fn-feet">
+        //     <p>A foot is defined, in this case, as 0.3048 m.</p>
+        //     <p>Historically, the foot has not been defined this way, corresponding to many
+        //     subtly different units depending on the location. <a href="#fr-feet-1">↩</a></p>
+        //     </li>
+        //     </ol>
+        //
+        // This is mostly a visual hack, so that footnotes use less vertical space.
+        //
+        // If there is no final paragraph, such as a tabular, list, or image footnote, it gets
+        // pushed after the last tag instead.
+        let mut has_written_backrefs = false;
+        let fl_len = fl.len();
+        let footnote_numbers = &footnote_numbers;
+        fl.into_iter().enumerate().map(move |(i, f)| match f {
+            Event::Start(Tag::FootnoteDefinition(current_name)) => {
+                name = current_name;
+                has_written_backrefs = false;
+                Event::Html(format!(r##"<li id="fn-{name}">"##).into())
+            }
+            Event::End(TagEnd::FootnoteDefinition) | Event::End(TagEnd::Paragraph)
+                if !has_written_backrefs && i >= fl_len - 2 =>
+            {
+                let usage_count = footnote_numbers.get(&name).unwrap().1;
+                let mut end = String::with_capacity(
+                    name.len() + (r##" <a href="#fr--1">↩</a></li>"##.len() * usage_count),
+                );
+                for usage in 1..=usage_count {
+                    if usage == 1 {
+                        write!(&mut end, r##" <a href="#fr-{name}-{usage}">↩</a>"##).unwrap();
+                    } else {
+                        write!(&mut end, r##" <a href="#fr-{name}-{usage}">↩{usage}</a>"##)
+                            .unwrap();
+                    }
+                }
+                has_written_backrefs = true;
+                if f == Event::End(TagEnd::FootnoteDefinition) {
+                    end.push_str("</li>\n");
+                } else {
+                    end.push_str("</p>\n");
+                }
+                Event::Html(end.into())
+            }
+            Event::End(TagEnd::FootnoteDefinition) => Event::Html("</li>\n".into()),
+            Event::FootnoteReference(_) => unreachable!("converted to HTML earlier"),
+            f => f,
+        })
+    });
+
+    old_events.extend(footnotes);
+    old_events.push(Event::Html("</ol>\n</footer>\n".into()));
 }
 
 pub fn markdown_to_html(
@@ -241,16 +411,23 @@ pub fn markdown_to_html(
         .map(|x| x.as_object().unwrap().get("relative_path").unwrap().as_str().unwrap());
     // the rendered html
     let mut html = String::with_capacity(content.len());
+    let mut summary = None;
     // Set while parsing
     let mut error = None;
 
     let mut code_block: Option<CodeBlock> = None;
+    // Indicates whether we're in the middle of parsing a text node which will be placed in an HTML
+    // attribute, and which hence has to be escaped using escape_html rather than push_html's
+    // default HTML body escaping for text nodes.
+    let mut inside_attribute = false;
 
     let mut headings: Vec<Heading> = vec![];
     let mut internal_links = Vec::new();
     let mut external_links = Vec::new();
 
     let mut stop_next_end_p = false;
+
+    let lazy_async_image = context.config.markdown.lazy_async_image;
 
     let mut opts = Options::empty();
     let mut has_summary = false;
@@ -262,6 +439,9 @@ pub fn markdown_to_html(
 
     if context.config.markdown.smart_punctuation {
         opts.insert(Options::ENABLE_SMART_PUNCTUATION);
+    }
+    if context.config.markdown.definition_list {
+        opts.insert(Options::ENABLE_DEFINITION_LIST);
     }
 
     // we reverse their order so we can pop them easily in order
@@ -283,12 +463,19 @@ pub fn markdown_to_html(
 
                         // we have some text before the shortcode, push that first
                         if $range.start != sc_span.start {
-                            let content = $text[($range.start - orig_range_start)
-                                ..(sc_span.start - orig_range_start)]
-                                .to_string()
-                                .into();
+                            let content: cmark::CowStr<'_> =
+                                $text[($range.start - orig_range_start)
+                                    ..(sc_span.start - orig_range_start)]
+                                    .to_string()
+                                    .into();
                             events.push(if $is_text {
-                                Event::Text(content)
+                                if inside_attribute {
+                                    let mut buffer = "".to_string();
+                                    escape_html(&mut buffer, content.as_ref()).unwrap();
+                                    Event::Html(buffer.into())
+                                } else {
+                                    Event::Text(content)
+                                }
                             } else {
                                 Event::Html(content)
                             });
@@ -359,7 +546,13 @@ pub fn markdown_to_html(
                         };
 
                         if !contains_shortcode(text.as_ref()) {
-                            events.push(Event::Text(text));
+                            if inside_attribute {
+                                let mut buffer = "".to_string();
+                                escape_html(&mut buffer, text.as_ref()).unwrap();
+                                events.push(Event::Html(buffer.into()));
+                            } else {
+                                events.push(Event::Text(text));
+                            }
                             continue;
                         }
 
@@ -371,11 +564,17 @@ pub fn markdown_to_html(
                         cmark::CodeBlockKind::Fenced(fence_info) => FenceSettings::new(fence_info),
                         _ => FenceSettings::new(""),
                     };
-                    let (block, begin) = CodeBlock::new(fence, context.config, path);
+                    let (block, begin) = match CodeBlock::new(fence, context.config, path) {
+                        Ok(cb) => cb,
+                        Err(e) => {
+                            error = Some(e);
+                            break;
+                        }
+                    };
                     code_block = Some(block);
                     events.push(Event::Html(begin.into()));
                 }
-                Event::End(Tag::CodeBlock(_)) => {
+                Event::End(TagEnd::CodeBlock { .. }) => {
                     if let Some(ref mut code_block) = code_block {
                         let html = code_block.highlight(&accumulated_block);
                         events.push(Event::Html(html.into()));
@@ -386,22 +585,53 @@ pub fn markdown_to_html(
                     code_block = None;
                     events.push(Event::Html("</code></pre>\n".into()));
                 }
-                Event::Start(Tag::Image(link_type, src, title)) => {
-                    if is_colocated_asset_link(&src) {
-                        let link = format!("{}{}", context.current_page_permalink, &*src);
-                        events.push(Event::Start(Tag::Image(link_type, link.into(), title)));
+                Event::Start(Tag::Image { link_type, dest_url, title, id }) => {
+                    let link = if is_colocated_asset_link(&dest_url) {
+                        let link = format!("{}{}", context.current_page_permalink, &*dest_url);
+                        link.into()
                     } else {
-                        events.push(Event::Start(Tag::Image(link_type, src, title)));
-                    }
+                        dest_url
+                    };
+
+                    events.push(if lazy_async_image {
+                        let mut img_before_alt: String = "<img src=\"".to_string();
+                        cmark_escape::escape_href(&mut img_before_alt, &link)
+                            .expect("Could not write to buffer");
+                        if !title.is_empty() {
+                            img_before_alt
+                                .write_str("\" title=\"")
+                                .expect("Could not write to buffer");
+                            cmark_escape::escape_href(&mut img_before_alt, &title)
+                                .expect("Could not write to buffer");
+                        }
+                        img_before_alt.write_str("\" alt=\"").expect("Could not write to buffer");
+                        inside_attribute = true;
+                        Event::Html(img_before_alt.into())
+                    } else {
+                        inside_attribute = false;
+                        Event::Start(Tag::Image { link_type, dest_url: link, title, id })
+                    });
                 }
-                Event::Start(Tag::Link(link_type, link, title)) if link.is_empty() => {
+                Event::End(TagEnd::Image) => events.push(if lazy_async_image {
+                    Event::Html("\" loading=\"lazy\" decoding=\"async\" />".into())
+                } else {
+                    event
+                }),
+                Event::Start(Tag::Link { link_type, dest_url, title, id })
+                    if dest_url.is_empty() =>
+                {
                     error = Some(Error::msg("There is a link that is missing a URL"));
-                    events.push(Event::Start(Tag::Link(link_type, "#".into(), title)));
+                    events.push(Event::Start(Tag::Link {
+                        link_type,
+                        dest_url: "#".into(),
+                        title,
+                        id,
+                    }));
                 }
-                Event::Start(Tag::Link(link_type, link, title)) => {
+                Event::Start(Tag::Link { link_type, dest_url, title, id }) => {
                     let fixed_link = match fix_link(
                         link_type,
-                        &link,
+                        &dest_url,
                         context,
                         &mut internal_links,
                         &mut external_links,
@@ -415,12 +645,12 @@ pub fn markdown_to_html(
                     };
 
                     events.push(
-                        if is_external_link(&link)
+                        if is_external_link(&dest_url)
                             && context.config.markdown.has_external_link_tweaks()
                         {
                             let mut escaped = String::new();
                             // write_str can fail but here there are no reasons it should (afaik?)
-                            cmark::escape::escape_href(&mut escaped, &link)
+                            cmark_escape::escape_href(&mut escaped, &dest_url)
                                 .expect("Could not write to buffer");
                             Event::Html(
                                 context
@@ -430,7 +660,12 @@ pub fn markdown_to_html(
                                     .into(),
                             )
                         } else {
-                            Event::Start(Tag::Link(link_type, fixed_link.into(), title))
+                            Event::Start(Tag::Link {
+                                link_type,
+                                dest_url: fixed_link.into(),
+                                title,
+                                id,
+                            })
                         },
                     )
                 }
@@ -452,7 +687,7 @@ pub fn markdown_to_html(
 
                     events.push(event);
                 }
-                Event::End(Tag::Paragraph) => {
+                Event::End(TagEnd::Paragraph) => {
                     events.push(if stop_next_end_p {
                         stop_next_end_p = false;
                         Event::Html("".into())
@@ -460,17 +695,15 @@ pub fn markdown_to_html(
                         event
                     });
                 }
-                Event::Html(text) => {
-                    if text.contains("<!-- more -->") {
-                        has_summary = true;
-                        events.push(Event::Html(CONTINUE_READING.into()));
-                        continue;
-                    }
-                    if !contains_shortcode(text.as_ref()) {
-                        events.push(Event::Html(text));
-                        continue;
-                    }
-
+                Event::Html(text) | Event::InlineHtml(text)
+                    if !has_summary && MORE_DIVIDER_RE.is_match(text.as_ref()) =>
+                {
+                    has_summary = true;
+                    events.push(Event::Html(CONTINUE_READING.into()));
+                }
+                Event::Html(text) | Event::InlineHtml(text)
+                    if contains_shortcode(text.as_ref()) =>
+                {
                     render_shortcodes!(false, text, range);
                 }
                 _ => events.push(event),
@@ -558,14 +791,70 @@ pub fn markdown_to_html(
             insert_many(&mut events, anchors_to_insert);
         }
 
-        cmark::html::push_html(&mut html, events.into_iter());
+        if context.config.markdown.bottom_footnotes {
+            convert_footnotes_to_github_style(&mut events);
+        }
+
+        let continue_reading = events
+            .iter()
+            .position(|e| matches!(e, Event::Html(CowStr::Borrowed(CONTINUE_READING))))
+            .unwrap_or(events.len());
+
+        // determine closing tags missing from summary
+        let mut tags = Vec::new();
+        for event in &events[..continue_reading] {
+            match event {
+                Event::Start(Tag::HtmlBlock) | Event::End(TagEnd::HtmlBlock) => (),
+                Event::Start(tag) => tags.push(tag.to_end()),
+                Event::End(tag) => {
+                    tags.truncate(tags.iter().rposition(|t| *t == *tag).unwrap_or(0));
+                }
+                _ => (),
+            }
+        }
+
+        let mut events = events.into_iter();
+
+        // emit everything up to summary
+        cmark::html::push_html(&mut html, events.by_ref().take(continue_reading));
+
+        if has_summary {
+            // remove footnotes
+            let mut summary_html = FOOTNOTES_RE.replace_all(&html, "").into_owned();
+
+            // truncate trailing whitespace
+            summary_html.truncate(summary_html.trim_end().len());
+
+            // add cutoff template
+            if !tags.is_empty() {
+                let mut c = tera::Context::new();
+                c.insert("summary", &summary_html);
+                c.insert("lang", &context.lang);
+                let summary_cutoff = utils::templates::render_template(
+                    SUMMARY_CUTOFF_TEMPLATE,
+                    &context.tera,
+                    c,
+                    &None,
+                )
+                .context("Failed to render summary cutoff template")?;
+                summary_html.push_str(&summary_cutoff);
+            }
+
+            // close remaining tags
+            cmark::html::push_html(&mut summary_html, tags.into_iter().rev().map(Event::End));
+
+            summary = Some(summary_html);
+        }
+
+        // emit everything after summary
+        cmark::html::push_html(&mut html, events);
     }
 
     if let Some(e) = error {
         Err(e)
     } else {
         Ok(Rendered {
-            summary_len: if has_summary { html.find(CONTINUE_READING) } else { None },
+            summary,
             body: html,
             toc: make_table_of_contents(headings),
             internal_links,
@@ -577,8 +866,11 @@ pub fn markdown_to_html(
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
+    use config::Config;
+    use insta::assert_snapshot;
+    use templates::ZOLA_TERA;
 
+    #[test]
     fn insert_many_works() {
         let mut v = vec![1, 2, 3, 4, 5];
         insert_many(&mut v, vec![(0, 0), (2, -1), (5, 6)]);
@@ -619,5 +911,135 @@ mod tests {
         for link in links {
             assert!(!is_colocated_asset_link(link));
         }
+    }
+
+    #[test]
+    // Tests for summary being split out
+    fn test_summary_split() {
+        let top = "Here's a compelling summary.";
+        let top_rendered = format!("<p>{top}</p>");
+        let bottom = "Here's the compelling conclusion.";
+        let bottom_rendered = format!("<p>{bottom}</p>");
+        // FIXME: would add a test that includes newlines, but due to the way pulldown-cmark parses HTML nodes, these are passed as separate HTML events. see: https://github.com/raphlinus/pulldown-cmark/issues/803
+        let mores =
+            ["<!-- more -->", "<!--more-->", "<!-- MORE -->", "<!--MORE-->", "<!--\t MoRe \t-->"];
+        let config = Config::default();
+        let mut context = RenderContext::from_config(&config);
+        context.tera.to_mut().extend(&ZOLA_TERA).unwrap();
+        for more in mores {
+            let content = format!("{top}\n\n{more}\n\n{bottom}");
+            let rendered = markdown_to_html(&content, &context, vec![]).unwrap();
+            assert!(rendered.summary.is_some(), "no summary when splitting on {more}");
+            let summary = rendered.summary.unwrap();
+            let summary = summary.trim();
+            let body = rendered.body[summary.len()..].trim();
+            let continue_reading = &body[..CONTINUE_READING.len()];
+            let body = &body[CONTINUE_READING.len()..].trim();
+            assert_eq!(summary, &top_rendered);
+            assert_eq!(continue_reading, CONTINUE_READING);
+            assert_eq!(body, &bottom_rendered);
+        }
+    }
+
+    #[test]
+    fn no_footnotes() {
+        let mut opts = Options::empty();
+        opts.insert(Options::ENABLE_TABLES);
+        opts.insert(Options::ENABLE_FOOTNOTES);
+        opts.insert(Options::ENABLE_STRIKETHROUGH);
+        opts.insert(Options::ENABLE_TASKLISTS);
+        opts.insert(Options::ENABLE_HEADING_ATTRIBUTES);
+
+        let content = "Some text *without* footnotes.\n\nOnly ~~fancy~~ formatting.";
+        let mut events: Vec<_> = Parser::new_ext(&content, opts).collect();
+        convert_footnotes_to_github_style(&mut events);
+        let mut html = String::new();
+        cmark::html::push_html(&mut html, events.into_iter());
+        assert_snapshot!(html);
+    }
+
+    #[test]
+    fn single_footnote() {
+        let mut opts = Options::empty();
+        opts.insert(Options::ENABLE_TABLES);
+        opts.insert(Options::ENABLE_FOOTNOTES);
+        opts.insert(Options::ENABLE_STRIKETHROUGH);
+        opts.insert(Options::ENABLE_TASKLISTS);
+        opts.insert(Options::ENABLE_HEADING_ATTRIBUTES);
+
+        let content = "This text has a footnote[^1]\n [^1]:But it is meaningless.";
+        let mut events: Vec<_> = Parser::new_ext(&content, opts).collect();
+        convert_footnotes_to_github_style(&mut events);
+        let mut html = String::new();
+        cmark::html::push_html(&mut html, events.into_iter());
+        assert_snapshot!(html);
+    }
+
+    #[test]
+    fn reordered_footnotes() {
+        let mut opts = Options::empty();
+        opts.insert(Options::ENABLE_TABLES);
+        opts.insert(Options::ENABLE_FOOTNOTES);
+        opts.insert(Options::ENABLE_STRIKETHROUGH);
+        opts.insert(Options::ENABLE_TASKLISTS);
+        opts.insert(Options::ENABLE_HEADING_ATTRIBUTES);
+
+        let content = "This text has two[^2] footnotes[^1]\n[^1]: not sorted.\n[^2]: But they are";
+        let mut events: Vec<_> = Parser::new_ext(&content, opts).collect();
+        convert_footnotes_to_github_style(&mut events);
+        let mut html = String::new();
+        cmark::html::push_html(&mut html, events.into_iter());
+        assert_snapshot!(html);
+    }
+
+    #[test]
+    fn def_before_use() {
+        let mut opts = Options::empty();
+        opts.insert(Options::ENABLE_TABLES);
+        opts.insert(Options::ENABLE_FOOTNOTES);
+        opts.insert(Options::ENABLE_STRIKETHROUGH);
+        opts.insert(Options::ENABLE_TASKLISTS);
+        opts.insert(Options::ENABLE_HEADING_ATTRIBUTES);
+
+        let content = "[^1]:It's before the reference.\n\n There is footnote definition?[^1]";
+        let mut events: Vec<_> = Parser::new_ext(&content, opts).collect();
+        convert_footnotes_to_github_style(&mut events);
+        let mut html = String::new();
+        cmark::html::push_html(&mut html, events.into_iter());
+        assert_snapshot!(html);
+    }
+
+    #[test]
+    fn multiple_refs() {
+        let mut opts = Options::empty();
+        opts.insert(Options::ENABLE_TABLES);
+        opts.insert(Options::ENABLE_FOOTNOTES);
+        opts.insert(Options::ENABLE_STRIKETHROUGH);
+        opts.insert(Options::ENABLE_TASKLISTS);
+        opts.insert(Options::ENABLE_HEADING_ATTRIBUTES);
+
+        let content = "This text has two[^1] identical footnotes[^1]\n[^1]: So one is present.\n[^2]: But another in not.";
+        let mut events: Vec<_> = Parser::new_ext(&content, opts).collect();
+        convert_footnotes_to_github_style(&mut events);
+        let mut html = String::new();
+        cmark::html::push_html(&mut html, events.into_iter());
+        assert_snapshot!(html);
+    }
+
+    #[test]
+    fn footnote_inside_footnote() {
+        let mut opts = Options::empty();
+        opts.insert(Options::ENABLE_TABLES);
+        opts.insert(Options::ENABLE_FOOTNOTES);
+        opts.insert(Options::ENABLE_STRIKETHROUGH);
+        opts.insert(Options::ENABLE_TASKLISTS);
+        opts.insert(Options::ENABLE_HEADING_ATTRIBUTES);
+
+        let content = "This text has a footnote[^1]\n[^1]: But the footnote has another footnote[^2].\n[^2]: That's it.";
+        let mut events: Vec<_> = Parser::new_ext(&content, opts).collect();
+        convert_footnotes_to_github_style(&mut events);
+        let mut html = String::new();
+        cmark::html::push_html(&mut html, events.into_iter());
+        assert_snapshot!(html);
     }
 }

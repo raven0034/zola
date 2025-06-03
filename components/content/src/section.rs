@@ -157,7 +157,7 @@ impl Section {
             &self.lang,
             &self.permalink,
             permalinks,
-            self.meta.insert_anchor_links,
+            self.meta.insert_anchor_links.unwrap_or(config.markdown.insert_anchor_links),
         );
         context.set_shortcode_definitions(shortcode_definitions);
         context.set_current_page_path(&self.file.relative);
@@ -283,7 +283,7 @@ mod tests {
         create_dir_all(path.join(&article_path).join("foo/baz/quux"))
             .expect("create nested temp dir");
         let mut f = File::create(article_path.join("_index.md")).unwrap();
-        f.write_all(b"+++\nslug=\"hey\"\n+++\n").unwrap();
+        f.write_all(b"+++\n+++\n").unwrap();
         File::create(article_path.join("example.js")).unwrap();
         File::create(article_path.join("graph.jpg")).unwrap();
         File::create(article_path.join("fail.png")).unwrap();
