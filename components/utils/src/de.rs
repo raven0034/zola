@@ -5,6 +5,7 @@ use libs::tera::{Map, Value};
 use libs::time;
 use libs::time::format_description::well_known::Rfc3339;
 use libs::toml;
+use crate::date::parse_human_date;
 use serde::{Deserialize, Deserializer};
 
 pub fn parse_yaml_datetime(date_string: &str) -> Result<time::OffsetDateTime> {
@@ -75,14 +76,24 @@ where
         MaybeDatetime::Datetime(d) => Ok(Some(d.to_string())),
         MaybeDatetime::String(s) => {
             if let Ok(d) = toml::value::Datetime::from_str(&s) {
-                Ok(Some(d.to_string()))
+                let out = d.to_string();
+                eprintln!("Parsed string as toml::Datetime from_str: {}", out);
+                Ok(Some(out))
             } else if let Ok(d) = parse_yaml_datetime(&s) {
                 // Ensure that the resulting string is easily reparseable down the line.
                 // In content::front_matter::page.rs where these strings are currently used,
                 // Rfc3339 works with the explicit demands in that code but not always with the result of
                 // _to_string.
-                Ok(Some(d.format(&Rfc3339).unwrap()))
+                let out = d.format(&Rfc3339).unwrap().to_string();
+                eprintln!("Parsed string as yaml datetime: {}", out);
+                Ok(Some(out))
+            } else if let Some(d) = parse_human_date(&s, None) {
+                // d is DateTime<Tz> in Europe/London, convert to RFC3339 string
+                let out = d.to_rfc3339();
+                eprintln!("Parsed string as human date (Europe/London): {}", out);
+                Ok(Some(out))
             } else {
+                eprintln!("Failed to parse datetime from string: {}", s);
                 Err(D::Error::custom("Unable to parse datetime"))
             }
         }

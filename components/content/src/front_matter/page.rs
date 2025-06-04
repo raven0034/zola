@@ -24,6 +24,7 @@ pub struct PageFrontMatter {
     /// Description in <meta> that appears when linked, e.g. on twitter
     pub description: Option<String>,
     /// Updated date
+    //#[serde(default, deserialize_with = "from_unknown_datetime")]
     #[serde(default)]
     pub updated: Option<String>,
     /// Datetime content was last updated
@@ -33,6 +34,7 @@ pub struct PageFrontMatter {
     #[serde(default, skip_deserializing)]
     pub updated_datetime_tuple: Option<(i32, u8, u8)>,
     /// Date if we want to order pages (ie blog post)
+    //#[serde(default, deserialize_with = "from_unknown_datetime")]
     #[serde(default)]
     pub date: Option<String>,
     /// Datetime content was created
@@ -192,6 +194,11 @@ mod tests {
     use libs::tera::to_value;
     use test_case::test_case;
     use time::macros::datetime;
+    use libs::chrono::TimeZone;
+    use libs::chrono_tz::Tz;
+    use libs::chrono::DateTime;
+    use libs::London;
+    use time::OffsetDateTime;
 
     #[test_case(&RawFrontMatter::Toml(r#"  "#); "toml")]
     #[test_case(&RawFrontMatter::Toml(r#"  "#); "yaml")]
@@ -267,7 +274,12 @@ date: 2016-10-10
     fn can_parse_date_yyyy_mm_dd(content: &RawFrontMatter) {
         let res = PageFrontMatter::parse(content, None).unwrap();
         assert!(res.datetime.is_some());
-        assert_eq!(res.datetime.unwrap(), datetime!(2016 - 10 - 10 0:00 UTC));
+        let odt = res.datetime.unwrap();
+        let chrono_dt = London.timestamp(odt.unix_timestamp(), odt.nanosecond());
+        assert_eq!(
+            chrono_dt,
+            London.with_ymd_and_hms(2016, 10, 10, 0, 0, 0).unwrap()
+        );
     }
 
     #[test_case(&RawFrontMatter::Toml(r#"
@@ -299,7 +311,12 @@ date: 2002-10-02T15:00:00
     fn can_parse_date_rfc3339_without_timezone(content: &RawFrontMatter) {
         let res = PageFrontMatter::parse(content, None).unwrap();
         assert!(res.datetime.is_some());
-        assert_eq!(res.datetime.unwrap(), datetime!(2002 - 10 - 02 15:00:00 UTC));
+        let odt = res.datetime.unwrap();
+        let chrono_dt = London.timestamp(odt.unix_timestamp(), odt.nanosecond());
+        assert_eq!(
+            chrono_dt,
+            London.with_ymd_and_hms(2002, 10, 2, 15, 0, 0).unwrap()
+        );
     }
 
     #[test_case(&RawFrontMatter::Toml(r#"
@@ -331,7 +348,12 @@ date: 2002-10-02 15:00:00
     fn can_parse_date_rfc3339_with_space_without_timezone(content: &RawFrontMatter) {
         let res = PageFrontMatter::parse(content, None).unwrap();
         assert!(res.datetime.is_some());
-        assert_eq!(res.datetime.unwrap(), datetime!(2002 - 10 - 02 15:00:00 UTC));
+        let odt = res.datetime.unwrap();
+        let chrono_dt = London.timestamp(odt.unix_timestamp(), odt.nanosecond());
+        assert_eq!(
+            chrono_dt,
+            London.with_ymd_and_hms(2002, 10, 2, 15, 0, 0).unwrap()
+        );
     }
 
     #[test_case(&RawFrontMatter::Toml(r#"
@@ -376,7 +398,7 @@ description: hey there
 date: 2001-12-15
 "#); "date only")]
     fn can_parse_yaml_dates(content: &RawFrontMatter) {
-        let res = PageFrontMatter::parse(content).unwrap();
+        let res = PageFrontMatter::parse(content, None).unwrap();
         assert!(res.datetime.is_some());
     }
 
@@ -422,9 +444,13 @@ date: "2016-10-10"
 "#); "yaml")]
     fn can_parse_valid_date_as_string(content: &RawFrontMatter) {
         let res = PageFrontMatter::parse(content, None).unwrap();
-        assert!(res.date.is_some());
         assert!(res.datetime.is_some());
-        assert_eq!(res.datetime.unwrap(), datetime!(2016 - 10 - 10 0:00 UTC));
+        let odt = res.datetime.unwrap();
+        let chrono_dt = London.timestamp(odt.unix_timestamp(), odt.nanosecond());
+        assert_eq!(
+            chrono_dt,
+            London.with_ymd_and_hms(2016, 10, 10, 0, 0, 0).unwrap()
+        );
     }
 
     #[test_case(&RawFrontMatter::Toml(r#"

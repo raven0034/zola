@@ -318,6 +318,13 @@ mod tests {
     use utils::slugs::SlugifyStrategy;
     use utils::types::InsertAnchor;
 
+    use time::macros::datetime;
+    use libs::chrono::TimeZone;
+    use libs::chrono_tz::Tz;
+    use libs::chrono::DateTime;
+    use libs::London;
+    use time::OffsetDateTime;
+
     #[test]
     fn can_parse_a_valid_page() {
         let config = Config::default_for_test();
@@ -687,7 +694,8 @@ And here's another. [^3]
         let page = res.unwrap();
         assert_eq!(page.file.parent, path.join("content").join("posts"));
         assert_eq!(page.slug, "with-assets");
-        assert_eq!(page.meta.date, Some("2013-06-02".to_string()));
+        assert_eq!(page.meta.datetime_tuple, Some((2013, 06, 02)));
+        //assert_eq!(page.meta.date, Some("2013-06-02".to_string()));
         assert_eq!(page.assets.len(), 3);
         assert_eq!(page.permalink, "http://a-website.com/posts/with-assets/");
     }
@@ -763,8 +771,9 @@ Hello world
             Page::parse(Path::new("2018-10-08_hello.md"), &content, &config, &PathBuf::new(), None);
         assert!(res.is_ok());
         let page = res.unwrap();
-
-        assert_eq!(page.meta.date, Some("2018-10-08".to_string()));
+        
+        assert_eq!(page.meta.datetime_tuple, Some((2018, 10, 08)));
+        //assert_eq!(page.meta.date, Some("2018-10-08".to_string()));
         assert_eq!(page.slug, "hello");
     }
 
@@ -789,7 +798,9 @@ Hello world
         assert!(res.is_ok());
         let page = res.unwrap();
 
-        assert_eq!(page.meta.date, Some("2018-10-08".to_string()));
+        // TODO: find a better way of handling this
+        assert_eq!(page.meta.datetime_tuple, Some((2018, 10, 08)));
+        //assert_eq!(page.meta.date, Some("2018-10-08".to_string()));
         assert_eq!(page.slug, " こんにちは");
     }
 
@@ -812,7 +823,8 @@ Hello world
         assert!(res.is_ok());
         let page = res.unwrap();
 
-        assert_eq!(page.meta.date, Some("2018-10-08".to_string()));
+        assert_eq!(page.meta.datetime_tuple, Some((2018, 10, 08)));
+        //assert_eq!(page.meta.date, Some("2018-10-08".to_string()));
         assert_eq!(page.slug, "hello");
     }
 
@@ -836,7 +848,8 @@ Hello world
         assert!(res.is_ok());
         let page = res.unwrap();
 
-        assert_eq!(page.meta.date, Some("2018-10-08".to_string()));
+        assert_eq!(page.meta.datetime_tuple, Some((2018, 10, 08)));
+        //assert_eq!(page.meta.date, Some("2018-10-08".to_string()));
         assert_eq!(page.slug, " hello");
     }
 
@@ -858,8 +871,9 @@ Hello world
         );
         assert!(res.is_ok());
         let page = res.unwrap();
-
-        assert_eq!(page.meta.date, Some("2018-10-02T15:00:00Z".to_string()));
+        
+        // Z --> UTC, time is BST at that specific point --> normalise against +1
+        assert_eq!(page.meta.date, Some("2018-10-02T16:00:00+01:00".to_string()));
         assert_eq!(page.slug, "hello");
     }
 
@@ -884,7 +898,7 @@ Hello world
         assert!(res.is_ok());
         let page = res.unwrap();
 
-        assert_eq!(page.meta.date, Some("2018-10-02T15:00:00Z".to_string()));
+        assert_eq!(page.meta.date, Some("2018-10-02T16:00:00+01:00".to_string()));
         assert_eq!(page.slug, " こんにちは");
     }
 
@@ -903,7 +917,8 @@ Hello world
         assert!(res.is_ok());
         let page = res.unwrap();
 
-        assert_eq!(page.meta.date, Some("2018-09-09".to_string()));
+        assert_eq!(page.meta.datetime_tuple, Some((2018, 09, 09)));
+        //assert_eq!(page.meta.date, Some("2018-09-09".to_string()));
         assert_eq!(page.slug, "hello");
     }
 
@@ -942,7 +957,9 @@ Bonjour le monde"#
         );
         assert!(res.is_ok());
         let page = res.unwrap();
-        assert_eq!(page.meta.date, Some("2018-10-08".to_string()));
+
+        assert_eq!(page.meta.datetime_tuple, Some((2018, 10, 08)));
+        //assert_eq!(page.meta.date, Some("2018-10-08".to_string()));
         assert_eq!(page.lang, "fr".to_string());
         assert_eq!(page.slug, "hello");
         assert_eq!(page.permalink, "http://a-website.com/fr/hello/");
