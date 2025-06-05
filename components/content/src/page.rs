@@ -132,7 +132,7 @@ impl Page {
             }
             if page.meta.date.is_none() {
                 page.meta.date = Some(caps.name("datetime").unwrap().as_str().to_string());
-                page.meta.date_to_datetime(base_date);
+                page.meta.date_to_datetime(base_date)?;
             }
         }
 

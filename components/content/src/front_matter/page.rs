@@ -24,8 +24,7 @@ pub struct PageFrontMatter {
     /// Description in <meta> that appears when linked, e.g. on twitter
     pub description: Option<String>,
     /// Updated date
-    //#[serde(default, deserialize_with = "from_unknown_datetime")]
-    #[serde(default)]
+    #[serde(default, deserialize_with = "from_unknown_datetime")]
     pub updated: Option<String>,
     /// Datetime content was last updated
     #[serde(default, skip_deserializing)]
@@ -34,8 +33,7 @@ pub struct PageFrontMatter {
     #[serde(default, skip_deserializing)]
     pub updated_datetime_tuple: Option<(i32, u8, u8)>,
     /// Date if we want to order pages (ie blog post)
-    //#[serde(default, deserialize_with = "from_unknown_datetime")]
-    #[serde(default)]
+    #[serde(default, deserialize_with = "from_unknown_datetime")]
     pub date: Option<String>,
     /// Datetime content was created
     #[serde(default, skip_deserializing)]
@@ -82,6 +80,7 @@ pub struct PageFrontMatter {
 /// 2. a local datetime (RFC3339 with timezone omitted)
 /// 3. a local date (YYYY-MM-DD).
 /// This tries each in order.
+#[allow(dead_code)]
 fn parse_datetime(d: &str) -> Option<OffsetDateTime> {
     OffsetDateTime::parse(d, &Rfc3339)
         .or_else(|_| OffsetDateTime::parse(format!("{}Z", d).as_ref(), &Rfc3339))
@@ -116,7 +115,7 @@ impl PageFrontMatter {
             _ => unreachable!("Got something other than a table in page extra"),
         };
 
-        f.date_to_datetime(base_date);
+        f.date_to_datetime(base_date)?;
 
         for terms in f.taxonomies.values() {
             for term in terms {
@@ -137,23 +136,23 @@ impl PageFrontMatter {
 
     /// Converts the TOML datetime to a time::OffsetDateTime
     /// Also grabs the year/month/day tuple that will be used in serialization
-    pub fn date_to_datetime(&mut self, base: Option<DateTime<Tz>>) {
+    pub fn date_to_datetime(&mut self, base: Option<DateTime<Tz>>) -> Result<()> {
         if let Some(date) = &self.date {
-            self.datetime = parse_human_date(date, base).map(chrono_to_time_date);
-            match self.datetime {
-                Some(dt) => {
-                    self.date = Some(dt.format(&Rfc3339).unwrap());
-                    self.datetime_tuple = Some((dt.year(), dt.month().into(), dt.day()));
-                },
-                None => println!("Date parse error for {:?}", self.slug)
-            }
+            let dt = parse_human_date(date, base)?;
+            let odt = chrono_to_time_date(dt);
+            self.datetime = Some(odt);
+            self.date = Some(odt.format(&Rfc3339).unwrap());
+            self.datetime_tuple = Some((odt.year(), odt.month().into(), odt.day()));
         }
 
         if let Some(date) = &self.updated {
-            self.updated_datetime = parse_human_date(date, base).map(chrono_to_time_date);
-            self.updated_datetime_tuple =
-                self.updated_datetime.map(|dt| (dt.year(), dt.month().into(), dt.day()));
+            let dt = parse_human_date(date, base)?;
+            let odt = chrono_to_time_date(dt);
+            self.updated_datetime = Some(odt);
+            self.updated_datetime_tuple = Some((odt.year(), odt.month().into(), odt.day()));
         }
+
+        Ok(())
     }
 
     pub fn weight(&self) -> usize {

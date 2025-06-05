@@ -279,7 +279,7 @@ impl Site {
                             "Base date is not a string for {}",
                             section.components.join("/")
                         ));
-                        if let Some(date) = parse_human_date(base, None) {
+                        if let Ok(date) = parse_human_date(base, None) {
                             base_date = Some(date);
                         }
                     }
