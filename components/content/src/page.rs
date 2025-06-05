@@ -318,11 +318,11 @@ mod tests {
     use utils::slugs::SlugifyStrategy;
     use utils::types::InsertAnchor;
 
-    use time::macros::datetime;
+    use libs::chrono::DateTime;
     use libs::chrono::TimeZone;
     use libs::chrono_tz::Tz;
-    use libs::chrono::DateTime;
     use libs::London;
+    use time::macros::datetime;
     use time::OffsetDateTime;
 
     #[test]
@@ -771,7 +771,7 @@ Hello world
             Page::parse(Path::new("2018-10-08_hello.md"), &content, &config, &PathBuf::new(), None);
         assert!(res.is_ok());
         let page = res.unwrap();
-        
+
         assert_eq!(page.meta.datetime_tuple, Some((2018, 10, 08)));
         //assert_eq!(page.meta.date, Some("2018-10-08".to_string()));
         assert_eq!(page.slug, "hello");
@@ -871,7 +871,7 @@ Hello world
         );
         assert!(res.is_ok());
         let page = res.unwrap();
-        
+
         // Z --> UTC, time is BST at that specific point --> normalise against +1
         assert_eq!(page.meta.date, Some("2018-10-02T16:00:00+01:00".to_string()));
         assert_eq!(page.slug, "hello");

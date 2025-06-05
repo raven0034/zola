@@ -92,10 +92,7 @@ fn parse_datetime(d: &str) -> Option<OffsetDateTime> {
 }
 
 impl PageFrontMatter {
-    pub fn parse(
-        raw: &RawFrontMatter,
-        base_date: Option<DateTime<Tz>>,
-    ) -> Result<PageFrontMatter> {
+    pub fn parse(raw: &RawFrontMatter, base_date: Option<DateTime<Tz>>) -> Result<PageFrontMatter> {
         let mut f: PageFrontMatter = raw.deserialize()?;
 
         if let Some(ref slug) = f.slug {
@@ -190,13 +187,13 @@ impl Default for PageFrontMatter {
 mod tests {
     use crate::front_matter::page::PageFrontMatter;
     use crate::front_matter::split::RawFrontMatter;
-    use libs::tera::to_value;
-    use test_case::test_case;
-    use time::macros::datetime;
+    use libs::chrono::DateTime;
     use libs::chrono::TimeZone;
     use libs::chrono_tz::Tz;
-    use libs::chrono::DateTime;
+    use libs::tera::to_value;
     use libs::London;
+    use test_case::test_case;
+    use time::macros::datetime;
     use time::OffsetDateTime;
 
     #[test_case(&RawFrontMatter::Toml(r#"  "#); "toml")]
@@ -275,10 +272,7 @@ date: 2016-10-10
         assert!(res.datetime.is_some());
         let odt = res.datetime.unwrap();
         let chrono_dt = London.timestamp(odt.unix_timestamp(), odt.nanosecond());
-        assert_eq!(
-            chrono_dt,
-            London.with_ymd_and_hms(2016, 10, 10, 0, 0, 0).unwrap()
-        );
+        assert_eq!(chrono_dt, London.with_ymd_and_hms(2016, 10, 10, 0, 0, 0).unwrap());
     }
 
     #[test_case(&RawFrontMatter::Toml(r#"
@@ -312,10 +306,7 @@ date: 2002-10-02T15:00:00
         assert!(res.datetime.is_some());
         let odt = res.datetime.unwrap();
         let chrono_dt = London.timestamp(odt.unix_timestamp(), odt.nanosecond());
-        assert_eq!(
-            chrono_dt,
-            London.with_ymd_and_hms(2002, 10, 2, 15, 0, 0).unwrap()
-        );
+        assert_eq!(chrono_dt, London.with_ymd_and_hms(2002, 10, 2, 15, 0, 0).unwrap());
     }
 
     #[test_case(&RawFrontMatter::Toml(r#"
@@ -349,10 +340,7 @@ date: 2002-10-02 15:00:00
         assert!(res.datetime.is_some());
         let odt = res.datetime.unwrap();
         let chrono_dt = London.timestamp(odt.unix_timestamp(), odt.nanosecond());
-        assert_eq!(
-            chrono_dt,
-            London.with_ymd_and_hms(2002, 10, 2, 15, 0, 0).unwrap()
-        );
+        assert_eq!(chrono_dt, London.with_ymd_and_hms(2002, 10, 2, 15, 0, 0).unwrap());
     }
 
     #[test_case(&RawFrontMatter::Toml(r#"
@@ -446,10 +434,7 @@ date: "2016-10-10"
         assert!(res.datetime.is_some());
         let odt = res.datetime.unwrap();
         let chrono_dt = London.timestamp(odt.unix_timestamp(), odt.nanosecond());
-        assert_eq!(
-            chrono_dt,
-            London.with_ymd_and_hms(2016, 10, 10, 0, 0, 0).unwrap()
-        );
+        assert_eq!(chrono_dt, London.with_ymd_and_hms(2016, 10, 10, 0, 0, 0).unwrap());
     }
 
     #[test_case(&RawFrontMatter::Toml(r#"

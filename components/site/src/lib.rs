@@ -220,7 +220,7 @@ impl Site {
                 None => continue,
                 Some(name) => name.to_str().unwrap(),
             };
-            
+
             // ignore excluded content
             match &self.config.ignored_content_globset {
                 Some(gs) => {
@@ -527,11 +527,7 @@ impl Site {
 
     /// Adds a page to the site and render it
     /// Only used in `zola serve --fast`
-    pub fn add_and_render_page(
-        &mut self,
-        path: &Path,
-        base: Option<DateTime<Tz>>,
-    ) -> Result<()> {
+    pub fn add_and_render_page(&mut self, path: &Path, base: Option<DateTime<Tz>>) -> Result<()> {
         let page = Page::from_file(path, &self.config, &self.base_path, base)?;
         self.add_page(page, true)?;
         self.populate_sections();
