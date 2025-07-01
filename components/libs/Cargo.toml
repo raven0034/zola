@@ -35,7 +35,7 @@ sha2 = "0.10"
 slug = "0.1"
 svg_metadata = "0.5"
 syntect = "5"
-tera = { git="https://github.com/raven0034/tera", features = ["preserve_order", "date-locale"], rev = "846a055" }
+tera = { version = "1.20.0", git = "https://github.com/raven0034/tera.git", rev="e13328e" }
 # tera = { path="../../../tera", features = ["preserve_order", "date-locale"] }
 termcolor = "1.0.4"
 time = "0.3"
