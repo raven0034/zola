@@ -5,50 +5,52 @@ edition = "2021"
 
 [dependencies]
 ahash = "0.8"
-ammonia = "3"
+ammonia = "4"
 atty = "0.2.11"
-base64 = "0.21"
+base64 = "0.22"
 csv = "1"
-elasticlunr-rs = { version = "3.0.0", features = ["da", "no", "de", "du", "es", "fi", "fr", "it", "pt", "ro", "ru", "sv", "tr"] }
+elasticlunr-rs = { version = "3.0.2", features = ["da", "no", "de", "du", "es", "fi", "fr", "hu", "it", "pt", "ro", "ru", "sv", "tr"] }
 filetime = "0.2"
 gh-emoji = "1"
 glob = "0.3"
 globset = "0.4"
-image = "0.24"
+image = {version = "0.25", default-features = true, features = ["avif"]}
 lexical-sort = "0.3"
-minify-html = "0.10"
-nom-bibtex = "0.3"
+minify-html = "0.15"
+nom-bibtex = "0.5"
 num-format = "0.4"
 once_cell = "1"
 percent-encoding = "2"
-pulldown-cmark = { version = "0.9", default-features = false, features = ["simd"]  }
-quickxml_to_serde = "0.5"
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html", "simd"] }
+pulldown-cmark-escape = { version = "0.11", default-features = false }
+quickxml_to_serde = "0.6"
 rayon = "1"
 regex = "1"
 relative-path = "1"
-reqwest = { version = "0.11", default-features = false, features = ["blocking"] }
 grass = {version = "0.13.1", default-features = false, features = ["random"]}
+reqwest = { version = "0.12", default-features = false, features = ["blocking"] }
 serde_json = "1"
 serde_yaml = "0.9"
 sha2 = "0.10"
 slug = "0.1"
-svg_metadata = "0.4"
+svg_metadata = "0.5"
 syntect = "5"
-tera = { git="https://github.com/raven0034/tera", features = ["preserve_order", "date-locale"], rev = "846a055" }
+tera = { version = "1.20.0", git = "https://github.com/raven0034/tera.git", rev="e13328e" }
 # tera = { path="../../../tera", features = ["preserve_order", "date-locale"] }
 termcolor = "1.0.4"
 time = "0.3"
-toml = "0.7"
+toml = "0.8"
 unic-langid = "0.9"
 unicode-segmentation = "1.2"
 url = "2"
 walkdir = "2"
-webp = "0.2"
 
 # Same as Tera fork, for date parsing
 chrono = { version = "0.4.23" }
 chrono-english = "0.1.7"
 chrono-tz = "0.8.3"
+webp = "0.3"
+avif-parse = "1.3.2"
 
 [features]
 # TODO: fix me, it doesn't pick up the reqwuest feature if not set as default

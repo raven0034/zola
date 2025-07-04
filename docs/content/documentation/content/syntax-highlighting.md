@@ -149,8 +149,7 @@ Here is a full list of supported languages and their short names:
 
 Note: due to some issues with the JavaScript syntax, the TypeScript syntax will be used instead.
 
-If you want to highlight a language not on this list, please open an issue or a pull request on the [Zola repo](https://github.com/getzola/zola).
-Alternatively, the `extra_syntaxes_and_themes` configuration option can be used to add additional syntax (and theme) files.
+If the language you want to highlight is not on this list, the `extra_syntaxes_and_themes` configuration option can be used to add additional syntax and theme files.
 
 If your site source is laid out as follows:
 
@@ -303,9 +302,19 @@ highlight(code);
 
 - `hide_lines` to hide lines. You must specify a list of inclusive ranges of lines to hide,
 separated by ` ` (whitespace). Ranges are 1-indexed.
-  
+
 ````
 ```rust,hide_lines=1-2
+use highlighter::highlight;
+let code = "...";
+highlight(code);
+```
+````
+
+- `name` to specify a name the code block is associated with.
+  
+````
+```rust,name=mod.rs
 use highlighter::highlight;
 let code = "...";
 highlight(code);
@@ -317,27 +326,28 @@ highlight(code);
 Depending on the annotations used, some codeblocks will be hard to read without any CSS. We recommend using the following
 snippet in your sites:
 
-```scss
+```css
 pre {
   padding: 1rem;
   overflow: auto;
 }
-// The line numbers already provide some kind of left/right padding
+/* The line numbers already provide some kind of left/right padding */
 pre[data-linenos] {
   padding: 1rem 0;
 }
 pre table td {
   padding: 0;
 }
-// The line number cells
+/* The line number cells */
 pre table td:nth-of-type(1) {
   text-align: center;
+  vertical-align: top;
   user-select: none;
 }
 pre mark {
-  // If you want your highlights to take the full width.
+  /* If you want your highlights to take the full width */
   display: block;
-  // The default background colour of a mark is bright yellow
+  /* The default background colour of a mark is bright yellow */
   background-color: rgba(254, 252, 232, 0.9);
 }
 pre table {
@@ -354,7 +364,7 @@ snippet above.
 
 ```scss, linenos, linenostart=10, hl_lines=3-4 8-9, hide_lines=2 7
 pre mark {
-  // If you want your highlights to take the full width.
+  // If you want your highlights to take the full width
   display: block;
   color: currentcolor;
 }

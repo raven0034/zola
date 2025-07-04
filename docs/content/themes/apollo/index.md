@@ -3,11 +3,14 @@
 title = "apollo"
 description = "Modern and minimalistic blog theme"
 template = "theme.html"
-date = 2023-08-20T14:37:38+02:00
+date = 2025-01-10T19:55:25+01:00
+
+[taxonomies]
+theme-tags = []
 
 [extra]
-created = 2023-08-20T14:37:38+02:00
-updated = 2023-08-20T14:37:38+02:00
+created = 2025-01-10T19:55:25+01:00
+updated = 2025-01-10T19:55:25+01:00
 repository = "https://github.com/not-matthias/apollo.git"
 homepage = "https://github.com/not-matthias/apollo"
 minimum_version = "0.14.0"
@@ -28,13 +31,13 @@ Modern and minimalistic blog theme powered by [Zola](https://getzola.org). See a
 <details open>
   <summary>Dark theme</summary>
 
-  ![blog-dark](https://user-images.githubusercontent.com/26800596/168986771-4ed049e2-e123-4d0e-8a24-7bf43f47551f.png)
+  ![blog-dark](./screenshot-dark.png)
 </details>
 
 <details>
   <summary>Light theme</summary>
 
-![blog-light](https://user-images.githubusercontent.com/26800596/168986766-72a48517-7122-465d-8108-3ae33e1e88b1.png)
+![blog-light](./screenshot.png)
 </details>
 
 ## Features
@@ -42,12 +45,14 @@ Modern and minimalistic blog theme powered by [Zola](https://getzola.org). See a
 - [X] Pagination
 - [X] Themes (light, dark, auto)
 - [X] Projects page
-- [X] Analytics using [GoatCounter](https://www.goatcounter.com/)
+- [X] Analytics using [GoatCounter](https://www.goatcounter.com/) / [Umami](https://umami.is/)
 - [x] Social Links
 - [x] MathJax Rendering
+- [x] Taxonomies
 - [x] Meta Tags For Individual Pages
-- [ ] Search
-- [ ] Categories
+- [x] Custom homepage
+- [x] Comments
+- [x] Search
 
 ## Installation
 
@@ -56,82 +61,33 @@ Modern and minimalistic blog theme powered by [Zola](https://getzola.org). See a
 git submodule add https://github.com/not-matthias/apollo themes/apollo
 ```
 
-2. Add `theme = "apollo"` to your `config.toml`
+2. Add the following to the top of your `config.toml`
+
+```toml
+theme = "apollo"
+taxonomies = [{ name = "tags" }]
+
+[extra]
+theme = "auto"
+socials = [
+  # Configure socials here
+]
+menu = [
+  # Configure menu bar here
+]
+
+# See this for more options: https://github.com/not-matthias/apollo/blob/main/config.toml#L14
+```
+
 3. Copy the example content
 
 ```
-cp -r themes/apollo/content content
+cp -r themes/apollo/content/* content/
 ```
 
-## Options
+## Configuration
 
-### Additional stylesheets
-
-You can add stylesheets to override the theme:
-
-```toml
-[extra]
-stylesheets = [
-    "override.css",
-    "something_else.css"
-]
-```
-
-These filenames are relative to the root of the site. In this example, the two CSS files would be in the `static` folder.
-
-### MathJax
-
-To enable MathJax equation rendering, set the variable `mathjax` to `true` in
-the `extra` section of your config.toml. Set `mathjax_dollar_inline_enable` to 
-`true` to render inline math by surrounding them inside $..$.
-
-```toml
-[extra]
-mathjax = true
-mathjax_dollar_inline_enable = true
-```
-
-## Config
-
- ### Customize `<meta/>` tags 
-
- The following TOML and YAML code will yiled two `<meta/>` tags, `<meta property="og:title" content="the og title"/>`, `<meta property="og:description" content="the og description"/>`. 
-
- TOML: 
-
- ```toml
- title = "post title"
- description = "post desc"
- date = "2023-01-01"
-
- [extra]
- meta = [
-     {property = "og:title", content = "the og title"},
-     {property = "og:description", content = "the og description"},
- ]
- ```
-
- YAML: 
-
- ```yaml
- title: "post title"
- description: "post desc"
- date: "2023-01-01"
- extra: 
-     meta: 
-         - property: "og:title"
-           content: "the og title"
-         - property: "og:description"
-           content: "the og description"
- ```
-
- If the `og:title`, the `og:description`, or the "description" are not set, the page's title and description will be used. That is, the following TOML code generates `<meta property="og:title" content="post title"/>`, `<meta property="og:description" content="post desc"/>`, and `<meta property="og:description" content="post desc"/>` as default values. 
-
- ```toml
- title = "post title"
- description = "post desc"
- date = "2023-01-01"
- ```
+You can find all the configuration options [here](./content/posts/configuration.md)
 
 ## References
 

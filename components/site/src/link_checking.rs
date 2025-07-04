@@ -1,14 +1,16 @@
 use core::time;
-use std::path::Path;
-use std::{collections::HashMap, path::PathBuf, thread};
+use std::path::{Path, PathBuf};
+use std::{cmp, collections::HashMap, collections::HashSet, iter::FromIterator, thread};
 
 use config::LinkCheckerLevel;
+use libs::globset::GlobSet;
 use libs::rayon::prelude::*;
 
 use crate::Site;
 use errors::{bail, Result};
 use libs::rayon;
 use libs::url::Url;
+use utils::anchors::is_special_anchor;
 
 /// Check whether all internal links pointing to explicit anchor fragments are valid.
 ///
@@ -39,6 +41,7 @@ pub fn check_internal_links_with_anchors(site: &Site) -> Vec<String> {
             (md_path, Some(anchor)) => Some((page_path, md_path, anchor)),
             _ => None,
         })
+        .filter(|(_, _, anchor)| !is_special_anchor(anchor))
         .inspect(|_| anchors_total = anchors_total.saturating_add(1));
 
     // Check for targets existence (including anchors), then keep only the faulty
@@ -52,7 +55,7 @@ pub fn check_internal_links_with_anchors(site: &Site) -> Vec<String> {
             full_path.push(part);
         }
         // NOTE: This will also match _index.foobar.md where foobar is not a language
-        // as well as any other sring containing "_index." which is now referenced as
+        // as well as any other string containing "_index." which is now referenced as
         // unsupported page path in the docs.
         if md_path.contains("_index.") {
             let section = library.sections.get(&full_path).unwrap_or_else(|| {
@@ -105,6 +108,10 @@ fn should_skip_by_prefix(link: &str, skip_prefixes: &[String]) -> bool {
     skip_prefixes.iter().any(|prefix| link.starts_with(prefix))
 }
 
+fn should_skip_by_file(file_path: &Path, glob_set: &GlobSet) -> bool {
+    glob_set.is_match(file_path)
+}
+
 fn get_link_domain(link: &str) -> Result<String> {
     return match Url::parse(link) {
         Ok(url) => match url.host_str().map(String::from) {
@@ -150,9 +157,12 @@ pub fn check_external_links(site: &Site) -> Vec<String> {
     let mut invalid_url_links: u32 = 0;
     // First we look at all the external links, skip those the user wants to skip and record
     // the ones that have invalid URLs
+    let ignored_files_globset = site.config.link_checker.ignored_files_globset.as_ref().unwrap();
     for (file_path, links) in external_links {
         for link in links {
-            if should_skip_by_prefix(link, &site.config.link_checker.skip_prefixes) {
+            if should_skip_by_prefix(link, &site.config.link_checker.skip_prefixes)
+                || should_skip_by_file(file_path, ignored_files_globset)
+            {
                 skipped_link_count += 1;
             } else {
                 match get_link_domain(link) {
@@ -170,9 +180,15 @@ pub fn check_external_links(site: &Site) -> Vec<String> {
         }
     }
 
+    // Get unique links count from Vec by creating a temporary HashSet.
+    let unique_links_count = HashSet::<&str>::from_iter(
+        checked_links.iter().map(|link_def| link_def.external_link.as_str()),
+    )
+    .len();
+
     println!(
         "Checking {} external link(s). Skipping {} external link(s).{}",
-        checked_links.len(),
+        unique_links_count,
         skipped_link_count,
         if invalid_url_links == 0 {
             "".to_string()
@@ -199,24 +215,43 @@ pub fn check_external_links(site: &Site) -> Vec<String> {
         }
     }
 
+    let cpu_count = match thread::available_parallelism() {
+        Ok(count) => count.get(),
+        Err(_) => 1,
+    };
     // create thread pool with lots of threads so we can fetch
     // (almost) all pages simultaneously, limiting all links for a single
     // domain to one thread to avoid rate-limiting
-    let threads = std::cmp::min(links_by_domain.len(), 8);
-    match rayon::ThreadPoolBuilder::new().num_threads(threads).build() {
+    let num_threads = cmp::min(links_by_domain.len(), cmp::max(8, cpu_count));
+    match rayon::ThreadPoolBuilder::new().num_threads(num_threads).build() {
         Ok(pool) => {
             let errors = pool.install(|| {
                 links_by_domain
                     .par_iter()
                     .map(|(_, links)| {
                         let mut num_links_left = links.len();
+                        let mut checked_links: HashMap<&str, Option<link_checker::Result>> =
+                            HashMap::new();
                         links
                             .iter()
                             .filter_map(move |link_def| {
                                 num_links_left -= 1;
 
+                                // Avoid double-checking the same url (e.g. for translated pages).
+                                let external_link = link_def.external_link.as_str();
+                                if let Some(optional_res) = checked_links.get(external_link) {
+                                    if let Some(res) = optional_res {
+                                        return Some((
+                                            &link_def.file_path,
+                                            external_link,
+                                            res.clone(),
+                                        ));
+                                    }
+                                    return None;
+                                }
+
                                 let res = link_checker::check_url(
-                                    &link_def.external_link,
+                                    external_link,
                                     &site.config.link_checker,
                                 );
 
@@ -226,9 +261,11 @@ pub fn check_external_links(site: &Site) -> Vec<String> {
                                 }
 
                                 if link_checker::is_valid(&res) {
+                                    checked_links.insert(external_link, None);
                                     None
                                 } else {
-                                    Some((&link_def.file_path, &link_def.external_link, res))
+                                    checked_links.insert(external_link, Some(res.clone()));
+                                    Some((&link_def.file_path, external_link, res))
                                 }
                             })
                             .collect::<Vec<_>>()
@@ -239,13 +276,13 @@ pub fn check_external_links(site: &Site) -> Vec<String> {
 
             println!(
                 "> Checked {} external link(s): {} error(s) found.",
-                checked_links.len(),
+                unique_links_count,
                 errors.len()
             );
 
             for (page_path, link, check_res) in errors {
                 messages.push(format!(
-                    "Broken link in {} to {}: {}",
+                    "Broken link in {} to {} : {}",
                     page_path.to_string_lossy(),
                     link,
                     link_checker::message(&check_res)

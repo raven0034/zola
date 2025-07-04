@@ -26,7 +26,7 @@ used by Zola as well as their default values are listed below:
 
 ```toml
 # The base URL of the site; the only required configuration variable.
-base_url = "mywebsite.com"
+base_url = "https://mywebsite.com"
 
 # The site title and description; used in feeds by default.
 title = ""
@@ -59,13 +59,21 @@ minify_html = false
 #     ignored_content = ["*.{graphml,xlsx}", "temp.*", "**/build_folder"]
 ignored_content = []
 
-# When set to "true", a feed is automatically generated.
-generate_feed = false
+# Similar to ignored_content, a list of glob patterns specifying asset files to
+# ignore when the static directory is processed. Defaults to none, which means
+# that all asset files are copied over to the `public` directory
+ignored_static = []
 
-# The filename to use for the feed. Used as the template filename, too.
-# Defaults to "atom.xml", which has a built-in template that renders an Atom 1.0 feed.
+# When set to "true", a feed is automatically generated.
+generate_feeds = false
+
+# When set to "all", paginated pages are not a part of the sitemap, default is "none"
+exclude_paginated_pages_in_sitemap = "none"
+
+# The filenames to use for the feeds. Used as the template filenames, too.
+# Defaults to ["atom.xml"], which has a built-in template that renders an Atom 1.0 feed.
 # There is also a built-in template "rss.xml" that renders an RSS 2.0 feed.
-feed_filename = "atom.xml"
+feed_filenames = ["atom.xml"]
 
 # The number of articles to include in the feed. All items are included if
 # this limit is not set (the default).
@@ -76,6 +84,9 @@ feed_filename = "atom.xml"
 # output directory need to be on the same filesystem. Note that the theme's `static`
 # files are always copied, regardless of this setting.
 hard_link_static = false
+
+# The default author for pages
+author = 
 
 # The taxonomies to be rendered for the site and their configuration of the default languages
 # Example:
@@ -92,10 +103,19 @@ taxonomies = []
 # content for `default_language`.
 build_search_index = false
 
+# When set to "false", Sitemap.xml is not generated
+generate_sitemap = true
+
+# When set to "false", robots.txt is not generated
+generate_robots_txt = true
+
 # Configuration of the Markdown rendering
 [markdown]
 # When set to "true", all code blocks are highlighted.
 highlight_code = false
+
+# When set to "true", missing highlight languages are treated as errors. Defaults to false.
+error_on_missing_highlight = false
 
 # A list of directories used to search for additional `.sublime-syntax` and `.tmTheme` files.
 extra_syntaxes_and_themes = []
@@ -107,6 +127,9 @@ highlight_theme = "base16-ocean-dark"
 # When set to "true", emoji aliases translated to their corresponding
 # Unicode emoji equivalent in the rendered Markdown files. (e.g.: :smile: => 😄)
 render_emoji = false
+
+# CSS class to add to external links (e.g. "external-link")
+external_links_class = 
 
 # Whether external links are to be opened in a new tab
 # If this is true, a `rel="noopener"` will always automatically be added for security reasons
@@ -121,6 +144,25 @@ external_links_no_referrer = false
 # Whether smart punctuation is enabled (changing quotes, dashes, dots in their typographic form)
 # For example, `...` into `…`, `"quote"` into `“curly”` etc
 smart_punctuation = false
+
+# Whether parsing of definition lists is enabled
+definition_list = false
+
+# Whether to set decoding="async" and loading="lazy" for all images
+# When turned on, the alt text must be plain text.
+# For example, `![xx](...)` is ok but `![*x*x](...)` isn’t ok
+lazy_async_image = false
+
+# Whether footnotes are rendered in the GitHub-style (at the bottom, with back references) or plain (in the place, where they are defined)
+bottom_footnotes = false
+
+# This determines whether to insert a link for each header like the ones you can see on this site if you hover over
+# a header.
+# The default template can be overridden by creating an `anchor-link.html` file in the `templates` directory.
+# This value can be "left", "right", "heading" or "none".
+# "heading" means the full heading becomes the text of the anchor.
+# See "Internal links & deep linking" in the documentation for more information.
+insert_anchor_links = "none"
 
 # Configuration of the link checker.
 [link_checker]
@@ -156,16 +198,20 @@ paths_keep_dates = false
 include_title = true
 # Whether to include the description of the page/section in the index
 include_description = false
-# Whether to include the path of the page/section in the index
+# Whether to include the RFC3339 datetime of the page in the search index
+include_date = false
+# Whether to include the path of the page/section in the index (the permalink is always included)
 include_path = false
 # Whether to include the rendered content of the page/section in the index
 include_content = true
-# At which character to truncate the content to. Useful if you have a lot of pages and the index would
+# At which code point to truncate the content to. Useful if you have a lot of pages and the index would
 # become too big to load on the site. Defaults to not being set.
 # truncate_content_length = 100
 
-# Wether to produce the search index as a javascript file or as a JSON file
-# Accepted value "elasticlunr_javascript" or "elasticlunr_json"
+# Whether to produce the search index as a javascript file or as a JSON file
+# Accepted values:
+# - "elasticlunr_javascript", "elasticlunr_json"
+# - "fuse_javascript", "fuse_json"
 index_format = "elasticlunr_javascript"
 
 # Optional translation object for the default language
@@ -179,13 +225,13 @@ index_format = "elasticlunr_javascript"
 
 # Additional languages definition
 # You can define language specific config values and translations: 
-# title, description, generate_feed, feed_filename, taxonomies, build_search_index
+# title, description, generate_feeds, feed_filenames, taxonomies, build_search_index
 # as well as its own search configuration and translations (see above for details on those)
 [languages]
 # For example
 # [languages.fr]
 # title = "Mon blog"
-# generate_feed = true
+# generate_feeds = true
 # taxonomies = [
 #    {name = "auteurs"},
 #    {name = "tags"},

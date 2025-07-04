@@ -22,6 +22,7 @@ date: String?;
 updated: String?;
 slug: String;
 path: String;
+authors: Array<String>;
 draft: Bool;
 // the path, split on '/'
 components: Array<String>;
@@ -107,9 +108,19 @@ lang: String;
 translations: Array<TranslatedContent>;
 // All the pages/sections linking this page: their permalink and a title if there is one
 backlinks: Array<{permalink: String, title: String?}>;
-// Whether this section generates a feed or not. Taken from the front-matter if set
-generate_feed: bool;
+// Whether this section generates feeds or not. Taken from the front-matter if set
+generate_feeds: bool;
+// Whether this section is transparent. Taken from the front-matter if set
+transparent: bool;
+// How many items per pager (if defined)
+paginate_by: Number?;
+// If items order is reversed in the pagination (defaults to false)
+paginate_reversed: bool;
 ```
+
+Information about pagination is useful when using the `get_section` Tera function for which the `paginator` is not available.
+
+See [pagination template documentation](@/documentation/templates/pagination.md) for more information on the `paginator` variable.
 
 ## Table of contents
 

@@ -47,9 +47,9 @@ jobs:
     if: github.ref == 'refs/heads/main'
     steps:
       - name: checkout
-        uses: actions/checkout@v3.0.0
+        uses: actions/checkout@v4
       - name: build_and_deploy
-        uses: shalzz/zola-deploy-action@v0.17.2
+        uses: shalzz/zola-deploy-action@master
         env:
           # Target branch
           PAGES_BRANCH: gh-pages
@@ -78,9 +78,9 @@ jobs:
     if: github.ref != 'refs/heads/main'
     steps:
       - name: 'checkout'
-        uses: actions/checkout@v3.0.0
+        uses: actions/checkout@v4
       - name: 'build'
-        uses: shalzz/zola-deploy-action@v0.17.2
+        uses: shalzz/zola-deploy-action@master
         env:
           PAGES_BRANCH: gh-pages
           BUILD_DIR: .
@@ -91,9 +91,9 @@ jobs:
     if: github.ref == 'refs/heads/main'
     steps:
       - name: 'checkout'
-        uses: actions/checkout@v3.0.0
+        uses: actions/checkout@v4
       - name: 'build and deploy'
-        uses: shalzz/zola-deploy-action@v0.17.2
+        uses: shalzz/zola-deploy-action@master
         env:
           PAGES_BRANCH: master
           BUILD_DIR: .

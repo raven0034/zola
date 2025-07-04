@@ -5,7 +5,7 @@ pub fn html(html: String) -> Result<String> {
     let mut cfg = Cfg::spec_compliant();
     cfg.keep_html_and_head_opening_tags = true;
     cfg.minify_css = true;
-    cfg.minify_js = true;
+    cfg.minify_js = false;
 
     let minified = minify(html.as_bytes(), &cfg);
     match std::str::from_utf8(&minified) {
@@ -108,12 +108,14 @@ mod tests {
 </body>
 </html>
 "#;
-        let expected = r#"<!doctype html><html><head><meta charset=utf-8><style>p{color:white;margin-left:10000px}</style><body><p>Example blog post</p> FOO BAR"#;
+        let expected = r#"<!doctype html><html><head><meta charset=utf-8><style>p{color:#fff;margin-left:10000px}</style><body><p>Example blog post</p> FOO BAR"#;
         let res = html(input.to_owned()).unwrap();
         assert_eq!(res, expected);
     }
 
     // https://github.com/getzola/zola/issues/1765
+    // https://github.com/getzola/zola/issues/2731
+    #[ignore]
     #[test]
     fn can_minify_js() {
         let input = r#"
@@ -135,7 +137,7 @@ mod tests {
 </body>
 </html>
 "#;
-        let expected = r#"<!doctype html><html><head><meta charset=utf-8><script>alert("Hello World!");console.log("Some information: %o",information)</script><body><p>Example blog post</p> FOO BAR"#;
+        let expected = r#"<!doctype html><html><head><meta charset=utf-8><script>alert(`Hello World!`);console.log(`Some information: %o`,information)</script><body><p>Example blog post</p> FOO BAR"#;
         let res = html(input.to_owned()).unwrap();
         assert_eq!(res, expected);
     }

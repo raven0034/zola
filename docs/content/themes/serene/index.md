@@ -1,45 +1,45 @@
 
 +++
 title = "serene"
-description = "A blog theme for zola, simple and clean"
+description = "A spiffy blog theme for zola"
 template = "theme.html"
-date = 2023-08-20T14:37:38+02:00
+date = 2024-12-23T23:11:47+07:00
+
+[taxonomies]
+theme-tags = []
 
 [extra]
-created = 2023-08-20T14:37:38+02:00
-updated = 2023-08-20T14:37:38+02:00
+created = 2024-12-23T23:11:47+07:00
+updated = 2024-12-23T23:11:47+07:00
 repository = "https://github.com/isunjn/serene.git"
 homepage = "https://github.com/isunjn/serene"
-minimum_version = "0.9.0"
+minimum_version = "0.19.0"
 license = "MIT"
-demo = "https://serene-demo-site.vercel.app"
+demo = "https://serene-demo.pages.dev"
 
 [extra.author]
 name = "isunjn"
 homepage = "https://github.com/isunjn"
 +++        
 
-![screenshot](https://github.com/isunjn/serene/blob/main/screenshot.png?raw=true)
+<img width="1498" alt="截屏2024-11-02 19 15 38" src="https://github.com/user-attachments/assets/67a7907c-4845-4541-af83-0a31d0497808">
 
 <br />
 
-A blog theme for [zola](https://www.getzola.org), simple and clean
-
-## Demo
-
--  <https://serene-demo-site.vercel.app>
+A spiffy blog theme for [zola](https://www.getzola.org), demo: <https://serene-demo.pages.dev>
 
 ## Features
 
-- A spiffy design, well crafted
-- Projects page
-- Dark mode
-- Image zooming
-- Out-of-date alert
-- Sticky table-of-contents
-- Callouts (note, warning, alert, etc.)
+- Well crafted design
+- Customizable homepage layout
+- Projects page & Prose page
+- Dark mode & Customizable colors
+- Image zooming, Table-of-contents, Back-to-top button...
+- Out-of-date alert, Special quote, Featured mark...
+- Callout (note, warning, alert, etc.)
+- Anonymous emoji reactions
 - Comments using [Giscus](https://giscus.app)
-- Mathematical notations using [KaTeX](https://katex.org)
+- Mathematical notations using [KaTeX](https://katex.org) or [Typst](https://typst.app)
 - Diagrams and visualizations using [Mermaid](https://github.com/mermaid-js/mermaid)
 
 ## Usage
@@ -47,9 +47,8 @@ A blog theme for [zola](https://www.getzola.org), simple and clean
 - Check the [USAGE.md](https://github.com/isunjn/serene/blob/latest/USAGE.md) of `latest` branch
 - Also available in Simplified Chinese: [USAGE-zh_CN.md](https://github.com/isunjn/serene/blob/latest/USAGE-zh_CN.md) (简体中文)
 
-## Contributing
+## License
 
-- Before you make any non-trivial changes, you may want to open an issue so we can discuss
-- If you got any idea inspired by another blog theme or website and want to have that in serene, I'd like to hear about it
+[MIT](https://github.com/isunjn/serene/blob/main/LICENSE)
 
         

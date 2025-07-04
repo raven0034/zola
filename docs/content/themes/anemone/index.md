@@ -1,110 +1,161 @@
 
 +++
 title = "anemone"
-description = "Nearly no-Javascript, efficient, minimal theme."
+description = "A minimalist Zola theme that prioritizes clean CSS and avoids heavy JavaScript. Enjoy a seamless user experience with lightning-fast load times. Let your content take center stage in a clutter-free, elegant design that enhances readability. Responsive and efficient, anemone brings focus to your ideas."
 template = "theme.html"
-date = 2023-08-20T14:37:38+02:00
+date = 2024-09-15T01:11:06+01:00
+
+[taxonomies]
+theme-tags = []
 
 [extra]
-created = 2023-08-20T14:37:38+02:00
-updated = 2023-08-20T14:37:38+02:00
-repository = "https://github.com/Speyll/anemone"
+created = 2024-09-15T01:11:06+01:00
+updated = 2024-09-15T01:11:06+01:00
+repository = "https://github.com/Speyll/anemone.git"
 homepage = "https://github.com/Speyll/anemone"
 minimum_version = "0.4.0"
 license = "MIT"
 demo = "https://anemone.pages.dev"
 
 [extra.author]
-name = "Lyes 'Speyll'"
+name = "Speyll"
 homepage = "https://speyllsite.pages.dev/"
 +++        
 
 # anemone
 
-Nearly no-Javascript, efficient, minimal [Zola](https://www.getzola.org) theme.
-I use it on my own [website](https://speyllsite.pages.dev/)
+Introducing "anemone," a minimalist [Zola](https://www.getzola.org) theme that prioritizes clean CSS and avoids heavy JavaScript. Enjoy a seamless user experience with lightning-fast load times. Let your content take center stage in a clutter-free, elegant design that enhances readability. Responsive and efficient, anemone brings focus to your ideas.
 
-## Light and dark theme
-![screenshotLight](screenshot.png)
+You can browse the demo website [here](https://anemone.pages.dev/)
+I also use it on my own [website.](https://speyllsite.pages.dev/)
+
+Anemone is a versatile Zola theme that comes with both light and dark variants. You can easily switch between the light and dark themes to suit your preferences.
+
+![Anemone Light and Dark Theme](screenshot.png)
 
 ## Installation
-First download this theme to your `themes` directory:
+
+To get started with Anemone, follow these simple steps:
+
+1. Download the theme to your `themes` directory:
 
 ```bash
 cd themes
 git clone https://github.com/Speyll/anemone
 ```
 
-and then enable it in your `config.toml`:
+2. Enable Anemone in your `config.toml`:
 
 ```toml
 theme = "anemone"
 ```
 
+## Release Notes
+
+#### 02-03-2024
+This release brings several improvements and enhancements, focusing mainly on optimizing performance and user experience. Here's a summary of the key changes:
+
+- **suCSS Integration:** The core CSS now leverages the lightweight [suCSS framework](https://speyll.github.io/suCSS/) made by yours truly, providing better maintainability, robustness, and scalability. With suCSS, the theme should maintain consistent appearance across different browsers.
+
+- **Enhanced Theme Toggle:** The dark and light theme toggle has been revamped for more consistency. Now, the website respects the user's system-wide theme settings, ensuring a seamless experience. Additionally, the toggle retains the selected theme for future visits, offering improved usability.
+
+- **Smooth Transition and Sound Effect:** Enjoy a smoother transition between the dark and light mode accompanied by a subtle sound effect. Rest assured, the added sound effect incurs minimal performance overhead, with the file size being just 1kb.
+
+- **Class Names and Shortcodes Update:** Some class names and shortcodes have been modified for better organization and clarity. I apologize for any inconvenience this may cause.
+
+- **Slight change in Color Choice:** Some dark mode colors have been changed for the sake of readability, still using [veqev](https://github.com/Speyll/veqev).
+
+
 ## Options
 
-### Default taxonomies
-To use tags, in a page metadata add
+Anemone provides various options to customize your website:
+
+#### Default Taxonomies
+
+To use tags, add the following code to a page's metadata:
 
 ```toml
 [taxonomies]
-tags = [ 'tag1', 'tag2' ]
+tags = ["tag1", "tag2"]
 ```
 
-### Pages list in homepage
-To enable listing of pages in homepage add the following in `config.toml`
+#### Pages List in Homepage
+
+Enable listing of pages in the homepage by adding the following code to `config.toml`:
 
 ```toml
 [extra]
 list_pages = true
 ```
 
-### Header and footer nav links
-Also in the `extra` section in `config.toml`
+#### Multilanguage
+
+The theme has a built-in feature that allows you to use multiple languages. For detailed instructions on how to use this feature, you can refer to the [Zola Multilingual documentation](https://www.getzola.org/documentation/content/multilingual/). This documentation provides additional information on how to make the most out of this multilingual capability.
+
+```toml
+[languages.fr]
+generate_feeds = true
+build_search_index = true
+```
+#### Multilanguage-Ready Navigation Bar
+
+Customize the header navigation links with the following code in the `extra` section of `config.toml`:
 
 ```toml
 [extra]
 
 header_nav = [
-  { name = "/home/", url = "/" },
-  { name = "/about/", url = "/about" },
-  { name = "/journal/", url = "/journal" },
-  { name = "/blog/", url = "/blog" },
-]
-
-footer_nav = [
-  { name = "< previous", url = "#" },
-  { name = "webring", url = "#" },
-  { name = "next >", url = "#" },
+  { url = "/", name_en = "/home/", name_fr = "/accueil/" },
+  { url = "/about", name_en = "/about/", name_fr = "/concernant/" },
+  { url = "/journal", name_en = "/journal/", name_fr = "/journal/" },
+  { url = "/blog", name_en = "/blog/", name_fr = "/blog/" }
 ]
 ```
 
-### Add TOC to pages
+#### Add Table of Contents (TOC) to Pages
 
-In a page frontmatter, set `extra.toc` to `true`
+In a page's frontmatter, set `extra.toc` to `true`:
 
 ```toml
 [extra]
 toc = true
 ```
 
-### Extra data
+#### Display Author Name in Blog Posts
 
-- `author` can be set in both main config and in pages metadata
-- `image` variable can be used in pages to add an image to HTML `<meta>` tags
-- Same for `favicon` in main config, except this one is also used as the site icon
+Customize the display of the author's name in your blog posts by toggling the `display_author` variable to either `true` or `false`:
 
-### Disable Twitter card
+```toml
+[extra]
+display_author = true
+```
 
-Twitter metatags are generated by default, to disable them set `extra.twitter_card` to `false` in in your `config.toml`
+### Webrings
+
+Add a webring with a shortcode:
+
+```html
+{{/* webring(prev="#", webring="#", webringName="Random Webring", next="#") */}}
+```
+
+### Extra Data
+
+- Set the `author` in both the main config and in pages metadata.
+- Use the `image` variable in pages to add an image to HTML `<meta>` tags.
+- Similarly, set `favicon` in the main config, and it will be used as the site icon.
+- Set `footer_content_license` and `footer_content_license_link` if you wish to display content license information in the footer.
+
+#### Disable Twitter Card
+
+Twitter metatags are generated by default. To disable them, set `extra.twitter_card` to `false` in `config.toml`:
 
 ```toml
 [extra]
 twitter_card = true
 ```
 
-## License
+### License
 
-The theme is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
+The Anemone theme is available as open source under the terms of the [MIT License](LICENSE).
 
         

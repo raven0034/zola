@@ -6,8 +6,11 @@ use std::path::{Path, PathBuf};
 use config::Config;
 use errors::{anyhow, Context, Result};
 use libs::ahash::{HashMap, HashSet};
+use libs::image::codecs::avif::AvifEncoder;
+use libs::image::codecs::jpeg::JpegEncoder;
 use libs::image::imageops::FilterType;
-use libs::image::{EncodableLayout, ImageOutputFormat};
+use libs::image::GenericImageView;
+use libs::image::{EncodableLayout, ExtendedColorType, ImageEncoder, ImageFormat};
 use libs::rayon::prelude::*;
 use libs::{image, webp};
 use serde::{Deserialize, Serialize};
@@ -17,7 +20,7 @@ use crate::format::Format;
 use crate::helpers::get_processed_filename;
 use crate::{fix_orientation, ImageMeta, ResizeInstructions, ResizeOperation};
 
-pub static RESIZED_SUBDIR: &str = "processed_images";
+pub const RESIZED_SUBDIR: &str = "processed_images";
 
 /// Holds all data needed to perform a resize operation
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -38,7 +41,8 @@ impl ImageOp {
             return Ok(());
         }
 
-        let mut img = image::open(&self.input_path)?;
+        let img = image::open(&self.input_path)?;
+        let mut img = fix_orientation(&img, &self.input_path).unwrap_or(img);
 
         let img = match self.instr.crop_instruction {
             Some((x, y, w, h)) => img.crop(x, y, w, h),
@@ -49,17 +53,16 @@ impl ImageOp {
             None => img,
         };
 
-        let img = fix_orientation(&img, &self.input_path).unwrap_or(img);
-
         let f = File::create(&self.output_path)?;
         let mut buffered_f = BufWriter::new(f);
 
         match self.format {
             Format::Png => {
-                img.write_to(&mut buffered_f, ImageOutputFormat::Png)?;
+                img.write_to(&mut buffered_f, ImageFormat::Png)?;
             }
             Format::Jpeg(q) => {
-                img.write_to(&mut buffered_f, ImageOutputFormat::Jpeg(q))?;
+                let mut encoder = JpegEncoder::new_with_quality(&mut buffered_f, q);
+                encoder.encode_image(&img)?;
             }
             Format::WebP(q) => {
                 let encoder = webp::Encoder::from_image(&img)
@@ -69,6 +72,21 @@ impl ImageOp {
                     None => encoder.encode_lossless(),
                 };
                 buffered_f.write_all(memory.as_bytes())?;
+            }
+            Format::Avif(q) => {
+                let mut avif: Vec<u8> = Vec::new();
+                let color_type = match img.color().has_alpha() {
+                    true => ExtendedColorType::Rgba8,
+                    false => ExtendedColorType::Rgb8,
+                };
+                let encoder = AvifEncoder::new_with_speed_quality(&mut avif, 10, q.unwrap_or(70));
+                encoder.write_image(
+                    &img.as_bytes(),
+                    img.dimensions().0,
+                    img.dimensions().1,
+                    color_type,
+                )?;
+                buffered_f.write_all(&avif.as_bytes())?;
             }
         }
 
@@ -177,7 +195,7 @@ impl Processor {
     /// Run the enqueued image operations
     pub fn do_process(&mut self) -> Result<()> {
         if !self.img_ops.is_empty() {
-            ufs::ensure_directory_exists(&self.output_dir)?;
+            ufs::create_directory(&self.output_dir)?;
         }
 
         self.img_ops
@@ -197,7 +215,7 @@ impl Processor {
             return Ok(());
         }
 
-        ufs::ensure_directory_exists(&self.output_dir)?;
+        ufs::create_directory(&self.output_dir)?;
         let output_paths: HashSet<_> = self
             .img_ops
             .iter()

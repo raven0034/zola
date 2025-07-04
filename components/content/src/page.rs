@@ -33,10 +33,6 @@ static RFC3339_DATE: Lazy<Regex> = Lazy::new(|| {
     ).unwrap()
 });
 
-static FOOTNOTES_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r#"<sup class="footnote-reference"><a href=\s*.*?>\s*.*?</a></sup>"#).unwrap()
-});
-
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Page {
     /// All info about the actual file
@@ -136,7 +132,7 @@ impl Page {
             }
             if page.meta.date.is_none() {
                 page.meta.date = Some(caps.name("datetime").unwrap().as_str().to_string());
-                page.meta.date_to_datetime(base_date);
+                page.meta.date_to_datetime(base_date)?;
             }
         }
 
@@ -240,10 +236,7 @@ impl Page {
         let res = render_content(&self.raw_content, &context)
             .with_context(|| format!("Failed to render content of {}", self.file.path.display()))?;
 
-        self.summary = res
-            .summary_len
-            .map(|l| &res.body[0..l])
-            .map(|s| FOOTNOTES_RE.replace_all(s, "").into_owned());
+        self.summary = res.summary;
         self.content = res.body;
         self.toc = res.toc;
         self.external_links = res.external_links;
@@ -317,13 +310,20 @@ mod tests {
     use std::path::{Path, PathBuf};
 
     use libs::globset::{Glob, GlobSetBuilder};
-    use libs::tera::Tera;
     use tempfile::tempdir;
+    use templates::ZOLA_TERA;
 
     use crate::Page;
     use config::{Config, LanguageOptions};
     use utils::slugs::SlugifyStrategy;
     use utils::types::InsertAnchor;
+
+    use libs::chrono::DateTime;
+    use libs::chrono::TimeZone;
+    use libs::chrono_tz::Tz;
+    use libs::London;
+    use time::macros::datetime;
+    use time::OffsetDateTime;
 
     #[test]
     fn can_parse_a_valid_page() {
@@ -340,7 +340,7 @@ Hello world"#;
         let mut page = res.unwrap();
         page.render_markdown(
             &HashMap::default(),
-            &Tera::default(),
+            &ZOLA_TERA,
             &config,
             InsertAnchor::None,
             &HashMap::new(),
@@ -368,7 +368,7 @@ Hello world"#;
         let mut page = res.unwrap();
         page.render_markdown(
             &HashMap::default(),
-            &Tera::default(),
+            &ZOLA_TERA,
             &config,
             InsertAnchor::None,
             &HashMap::new(),
@@ -551,13 +551,13 @@ Hello world
         let mut page = res.unwrap();
         page.render_markdown(
             &HashMap::default(),
-            &Tera::default(),
+            &ZOLA_TERA,
             &config,
             InsertAnchor::None,
             &HashMap::new(),
         )
         .unwrap();
-        assert_eq!(page.summary, Some("<p>Hello world</p>\n".to_string()));
+        assert_eq!(page.summary, Some("<p>Hello world</p>".to_string()));
     }
 
     #[test]
@@ -576,7 +576,7 @@ And here's another. [^3]
 
 [^1]: This is the first footnote.
 
-[^2]: This is the secund footnote.
+[^2]: This is the second footnote.
 
 [^3]: This is the third footnote."#
             .to_string();
@@ -585,7 +585,7 @@ And here's another. [^3]
         let mut page = res.unwrap();
         page.render_markdown(
             &HashMap::default(),
-            &Tera::default(),
+            &ZOLA_TERA,
             &config,
             InsertAnchor::None,
             &HashMap::new(),
@@ -593,7 +593,7 @@ And here's another. [^3]
         .unwrap();
         assert_eq!(
             page.summary,
-            Some("<p>This page use <sup>1.5</sup> and has footnotes, here\'s one. </p>\n<p>Here's another. </p>\n".to_string())
+            Some("<p>This page use <sup>1.5</sup> and has footnotes, here\'s one. </p>\n<p>Here's another. </p>".to_string())
         );
     }
 
@@ -694,7 +694,8 @@ And here's another. [^3]
         let page = res.unwrap();
         assert_eq!(page.file.parent, path.join("content").join("posts"));
         assert_eq!(page.slug, "with-assets");
-        assert_eq!(page.meta.date, Some("2013-06-02".to_string()));
+        assert_eq!(page.meta.datetime_tuple, Some((2013, 06, 02)));
+        //assert_eq!(page.meta.date, Some("2013-06-02".to_string()));
         assert_eq!(page.assets.len(), 3);
         assert_eq!(page.permalink, "http://a-website.com/posts/with-assets/");
     }
@@ -771,7 +772,8 @@ Hello world
         assert!(res.is_ok());
         let page = res.unwrap();
 
-        assert_eq!(page.meta.date, Some("2018-10-08".to_string()));
+        assert_eq!(page.meta.datetime_tuple, Some((2018, 10, 08)));
+        //assert_eq!(page.meta.date, Some("2018-10-08".to_string()));
         assert_eq!(page.slug, "hello");
     }
 
@@ -796,7 +798,9 @@ Hello world
         assert!(res.is_ok());
         let page = res.unwrap();
 
-        assert_eq!(page.meta.date, Some("2018-10-08".to_string()));
+        // TODO: find a better way of handling this
+        assert_eq!(page.meta.datetime_tuple, Some((2018, 10, 08)));
+        //assert_eq!(page.meta.date, Some("2018-10-08".to_string()));
         assert_eq!(page.slug, " こんにちは");
     }
 
@@ -819,7 +823,8 @@ Hello world
         assert!(res.is_ok());
         let page = res.unwrap();
 
-        assert_eq!(page.meta.date, Some("2018-10-08".to_string()));
+        assert_eq!(page.meta.datetime_tuple, Some((2018, 10, 08)));
+        //assert_eq!(page.meta.date, Some("2018-10-08".to_string()));
         assert_eq!(page.slug, "hello");
     }
 
@@ -843,7 +848,8 @@ Hello world
         assert!(res.is_ok());
         let page = res.unwrap();
 
-        assert_eq!(page.meta.date, Some("2018-10-08".to_string()));
+        assert_eq!(page.meta.datetime_tuple, Some((2018, 10, 08)));
+        //assert_eq!(page.meta.date, Some("2018-10-08".to_string()));
         assert_eq!(page.slug, " hello");
     }
 
@@ -866,7 +872,8 @@ Hello world
         assert!(res.is_ok());
         let page = res.unwrap();
 
-        assert_eq!(page.meta.date, Some("2018-10-02T15:00:00Z".to_string()));
+        // Z --> UTC, time is BST at that specific point --> normalise against +1
+        assert_eq!(page.meta.date, Some("2018-10-02T16:00:00+01:00".to_string()));
         assert_eq!(page.slug, "hello");
     }
 
@@ -891,7 +898,7 @@ Hello world
         assert!(res.is_ok());
         let page = res.unwrap();
 
-        assert_eq!(page.meta.date, Some("2018-10-02T15:00:00Z".to_string()));
+        assert_eq!(page.meta.date, Some("2018-10-02T16:00:00+01:00".to_string()));
         assert_eq!(page.slug, " こんにちは");
     }
 
@@ -910,7 +917,8 @@ Hello world
         assert!(res.is_ok());
         let page = res.unwrap();
 
-        assert_eq!(page.meta.date, Some("2018-09-09".to_string()));
+        assert_eq!(page.meta.datetime_tuple, Some((2018, 09, 09)));
+        //assert_eq!(page.meta.date, Some("2018-09-09".to_string()));
         assert_eq!(page.slug, "hello");
     }
 
@@ -949,7 +957,9 @@ Bonjour le monde"#
         );
         assert!(res.is_ok());
         let page = res.unwrap();
-        assert_eq!(page.meta.date, Some("2018-10-08".to_string()));
+
+        assert_eq!(page.meta.datetime_tuple, Some((2018, 10, 08)));
+        //assert_eq!(page.meta.date, Some("2018-10-08".to_string()));
         assert_eq!(page.lang, "fr".to_string());
         assert_eq!(page.slug, "hello");
         assert_eq!(page.permalink, "http://a-website.com/fr/hello/");

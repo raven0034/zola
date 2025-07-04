@@ -61,7 +61,7 @@ mod tests {
             updated: updated_date.map(|c| c.to_string()),
             ..Default::default()
         };
-        front_matter.date_to_datetime();
+        let _ = front_matter.date_to_datetime(None);
         Page::new(format!("content/hello-{}.md", date), front_matter, &PathBuf::new())
     }
 
