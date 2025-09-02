@@ -3,14 +3,14 @@
 title = "neovim"
 description = "A only keyboard theme with tabs and file browser"
 template = "theme.html"
-date = 2024-09-26T00:35:09+02:00
+date = 2025-05-11T01:55:06+02:00
 
 [taxonomies]
 theme-tags = []
 
 [extra]
-created = 2024-09-26T00:35:09+02:00
-updated = 2024-09-26T00:35:09+02:00
+created = 2025-05-11T01:55:06+02:00
+updated = 2025-05-11T01:55:06+02:00
 repository = "https://github.com/Super-Botman/neovim-theme.git"
 homepage = "https://github.com/super-botman/zola-theme"
 minimum_version = "0.4"
@@ -26,14 +26,15 @@ homepage = "https://super-botman.github.io"
 
 Neovim theme is a neovim like theme for zola.
 
-![screenshot](./screenshot.png)
+![image](https://github.com/user-attachments/assets/0317c951-4975-4150-ac43-7faf4c57aa8b)
 
 exemple: [https://super-botman.github.io](https://super-botman.github.io)
 
-## Instalation
+## Installation
 ```bash
 cd themes
 git clone https://github.com/Super-Botman/neovim-theme.git
+mv neovim-theme/content/readme.md ../content
 ```
 
 then enable it in your config
@@ -42,46 +43,62 @@ then enable it in your config
 theme = "neovim-theme"
 ```
 
-## Config
-
-You can setup the blog name with config file in extra
+## Configuration
 
 ```toml
 [extra]
+######################
+# Mandatory settings #
+######################
+
+# set the name of the blog
 blog_name = "name"
+
+#####################
+# Optional settings #
+#####################
+
+# set the background image u want
+background-image = "assets/background.jpg"
+
+# this parameter allow you to configure specific init functions/shortcuts and commands
+# the value has to be the path of you're config.js file
+config_js = "config.js"
+
+# allow you to include custom css into u're blog
+custom_css = "style.css"
 ```
 
-## Customisation
+```js
+const keys = {
+  // "normal" keys are just keys typed on the page
+  // for exemple " " is when space is typed
+  normal: {
+    " ": (event, element) => {
+      alert("u pressed space key");
+    },
+  },
 
-### JS
+  // this is for keys when shift is pressed
+  shortcut: {},
+};
 
-You can add some custom javascript function with this parameter:
+const commands = {
+  // the key is used to specify the name of the command
+  test: (command) => {
+    alert("you entered 'test' command");
 
-```toml
-[extra]
-custom_script = "<path>.js" 
-```
-then you just add a file `static/js/custom_script.js` and define your custom functions like this:
+    // and then the return value with type and message
+    return {
+      type: "success", // "success" = green text, "error" = red text
+      message: "command executed", // the text to show in the command line
+    };
+  },
+};
 
-```javascript
-// add special commands
-function custom_commands(command, args){
-   ...
+function custom_init() {
+  // here some code
 }
-
-// add special init routine
-function custom_init(){
-    ...
-}
-```
-
-### CSS
-
-And for css 
-
-```toml
-[extra]
-custom_css = "<path>.css"
 ```
 
         

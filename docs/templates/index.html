@@ -13,13 +13,17 @@
     <body>
 
         <header>
-            <a class="header__logo white" href="{{ config.base_url }}">Zola</a>
+		<a class="header__logo white" href="{{ config.base_url }}"><img
+			src="/logos/Zola-logo-white.svg"
+			title="Zola main logo in white"
+			alt="Zola"
+			/></a>
             <nav>
                 <ul>
                     <li><a class="white" href="{{ get_url(path='@/documentation/_index.md') }}" class="nav-link">Docs</a></li>
                     <li><a class="white" href="{{ get_url(path='@/themes/_index.md') }}" class="nav-link">Themes</a></li>
-                    <li><a class="white" rel="noreferrer" href="https://zola.discourse.group/" class="nav-link">Forum</a></li>
-                    <li><a class="white" rel="noreferrer" href="https://github.com/getzola/zola" class="nav-link">GitHub</a></li>
+                    <li><a class="white external" href="https://zola.discourse.group/" class="nav-link">Forum</a></li>
+                    <li><a class="white external" href="https://github.com/getzola/zola" class="nav-link">GitHub</a></li>
                 </ul>
                 <div class="search-container">
                     <input id="search" type="search" placeholder="🔎 Search the docs">

@@ -3,14 +3,14 @@
 title = "jiaxiang.wang"
 description = "A fast and beautiful theme for creators, used by https://blog.jiaxiang.wang, porting from Halo-theme-hao."
 template = "theme.html"
-date = 2025-01-09T04:39:33Z
+date = 2025-04-22T02:31:58Z
 
 [taxonomies]
 theme-tags = []
 
 [extra]
-created = 2025-01-09T04:39:33Z
-updated = 2025-01-09T04:39:33Z
+created = 2025-04-22T02:31:58Z
+updated = 2025-04-22T02:31:58Z
 repository = "https://github.com/iWangJiaxiang/zola-theme-jiaxiang.wang"
 homepage = "https://github.com/iWangJiaxiang/zola-theme-jiaxiang.wang"
 minimum_version = "0.19.2"
@@ -24,7 +24,7 @@ homepage = "https://blog.jiaxiang.wang"
 
 <div align="center">
 
-<h1>Zola Theme for jiaxiang.wang [WIP]</h1>
+<h1>Zola Theme for jiaxiang.wang</h1>
 
 <h4>为创造者而生的开源 Zola 主题</h4>
 
@@ -32,12 +32,12 @@ homepage = "https://blog.jiaxiang.wang"
 
 主题预览](#-预览) | [快速上手](#-快速上手) | [加入讨论
 
-[中文](./README.md) | [English](./README.en.md)
+[中文](https://github.com/iWangJiaxiang/zola-theme-jiaxiang.wang/blob/main/README.md) | [English](https://github.com/iWangJiaxiang/zola-theme-jiaxiang.wang/blob/main/README.en.md)
 
 </p>
 </div>
 
-[![preview](<./content/articles/docs/01 Read Me/preview.webp>)](https://blog.jiaxiang.wang)
+[![preview](<https://github.com/iWangJiaxiang/zola-theme-jiaxiang.wang/raw/refs/heads/main/content/articles/docs/01%20Read%20Me/preview.webp>)](https://blog.jiaxiang.wang)
 
 ## ℹ️ 简介
 
@@ -47,11 +47,11 @@ homepage = "https://blog.jiaxiang.wang"
 
 ## 🔥 预览
 
-> 如果你的站点也使用了本主题，欢迎通过 PR 的形式在 readme.md 和 /static/data/friends.json 中添加站点信息
+> 如果你的站点也使用了本主题，欢迎通过 PR 的形式在 `readme.md` 和 `/static/data/friends.json` 中添加站点信息
 
 |  站点名称  |          站点地址           |
 |:------:|:-----------------------|
-| 王嘉祥 | https://blog.jiaxiang.wang |
+| 王嘉祥 Jiaxiang Wang | [https://blog.jiaxiang.wang](https://blog.jiaxiang.wang) |
 
 ### 🔌 功能
 
@@ -62,15 +62,21 @@ homepage = "https://blog.jiaxiang.wang"
     - [x] Twikoo
     - [ ] Artalk
     - [ ] Waline
-  - [x] 搜索（Algolia）
+  - [x] 搜索
+    - [x] Algolia
+    - [X] MeiliSearch
   - [x] Markdown
   - [x] Katex
   - [x] Prism 代码高亮
   - [x] 随机访问文章
   - [x] 右键菜单
   - [x] Pjax
-  - [ ] i18n国际化
-  - [ ] Post GPT
+  - [ ] i18n 国际化
+  - [x] AVIF 图片格式支持
+  - [ ] 文章摘要
+    - [x] 抽取本地文章描述
+    - [ ] 基于 Post GPT by Tianli
+    - [ ] 基于自定义 LLM 接口
 - [ ] 特殊页面
   - [x] 个人装备
   - [x] 友链

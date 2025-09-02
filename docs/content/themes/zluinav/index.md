@@ -3,14 +3,14 @@
 title = "UI Navigation"
 description = "A multilingual theme designed for accessibility rather than visual."
 template = "theme.html"
-date = 2025-01-12T12:55:23+06:30
+date = 2025-03-18T21:11:06+07:00
 
 [taxonomies]
-theme-tags = ['blind', 'multilingual', 'accessible', 'responsive']
+theme-tags = ['blind', 'multilingual', 'accessible', 'responsive', 'search', 'documentation', 'blog', 'SEO']
 
 [extra]
-created = 2025-01-12T12:55:23+06:30
-updated = 2025-01-12T12:55:23+06:30
+created = 2025-03-18T21:11:06+07:00
+updated = 2025-03-18T21:11:06+07:00
 repository = "https://github.com/harrymkt/zluinav"
 homepage = "https://github.com/harrymkt/zluinav"
 minimum_version = "0.19.2"
@@ -36,15 +36,15 @@ This theme is distributed under the terms of the [MIT License](https://github.co
 
 ## Features of zluinav theme
 - Accessibility; Zluinav is designed to be accessible as possible, especially for blind and visually impaired. This is done by using accessibility tags, such as ARIA, and other possible accessibility features.
+- SEO friendly.
 - Configuration; use an extensive [configuration](https://harrymkt.github.io/zluinav/docs#extra-variables) parameters to control your site, from the main configuration file to [frontmadder configuration](https://harrymkt.github.io/zluinav/docs/extra/frontmadder), and more.
 - Blog with pagination enabled; multiple blogs can be created by copying the blog directory in the content folder to the new directory for a new blog. This means that you can have multiple blogs in one site. In fact, Zola doesn't have its build-in posts, but it is possible using sections. Please note that directory other than blog will require you to manually set the `template` to `blogpage.html` and `page_template` to `section_paginated.html` in its `_index.md` file.
 - Documentation site; build accessible [documentation sites](https://harrymkt.github.io/zluinav/docs/documentation) by using built-in 1subsection templates specifically designed for documentation.
 - Multilingual; build your site in multiple languages.
-- Custom [Menus](https://harrymkt.github.io/zluinav/docs/extra/config#menus); can be set via `config.extra.menus.menu_name`.
+- [Custom Menu](https://harrymkt.github.io/zluinav/docs/extra/config#menus) support.
 - Taxonomies support.
 - Built-in [search](https://harrymkt.github.io/zluinav/docs/search) support, with a variety of search formats to choose.
 - Customizable extrahead, header, navigation, and footer by base templates and blocks.
-- Fast; Zola generates within a few milliseconds. Zluinav is built with HTML using aria whenever possible for accessibility with assistive screen reader as well as using JavaScript. You can rebase the templates, should you wish to add your own content.
 - Copy code blocks; add code blocks which can then be copied using buttons and display the code language if available, helped by JavaScript.
 - Variables; add [variables](https://harrymkt.github.io/zluinav/docs/writing) to your page content to be replaced during the site generate.
 - Local date display; display dates in user's local timezone, no madder what timezone the date is set.
@@ -81,7 +81,6 @@ Contributions to this theme are welcome, provided that the following requirement
 - Photos are not required in this theme. You may design with CSS for visual if you so wish.
 - When creating a pull request it is advised that you:
 	- Use different branch other than main; this avoids issues with updating in case your pull request gets rejected.
-	- Add label if possible.
 
 Thank you!
         

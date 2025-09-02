@@ -3,14 +3,14 @@
 title = "apollo"
 description = "Modern and minimalistic blog theme"
 template = "theme.html"
-date = 2025-01-10T19:55:25+01:00
+date = 2025-07-09T22:56:38+02:00
 
 [taxonomies]
 theme-tags = []
 
 [extra]
-created = 2025-01-10T19:55:25+01:00
-updated = 2025-01-10T19:55:25+01:00
+created = 2025-07-09T22:56:38+02:00
+updated = 2025-07-09T22:56:38+02:00
 repository = "https://github.com/not-matthias/apollo.git"
 homepage = "https://github.com/not-matthias/apollo"
 minimum_version = "0.14.0"
@@ -31,21 +31,23 @@ Modern and minimalistic blog theme powered by [Zola](https://getzola.org). See a
 <details open>
   <summary>Dark theme</summary>
 
-  ![blog-dark](./screenshot-dark.png)
+![blog-dark](./screenshot-dark.png)
+
 </details>
 
 <details>
   <summary>Light theme</summary>
 
 ![blog-light](./screenshot.png)
+
 </details>
 
 ## Features
 
-- [X] Pagination
-- [X] Themes (light, dark, auto)
-- [X] Projects page
-- [X] Analytics using [GoatCounter](https://www.goatcounter.com/) / [Umami](https://umami.is/)
+- [x] Pagination
+- [x] Themes (light, dark, auto)
+- [x] Projects page
+- [x] Analytics using [GoatCounter](https://www.goatcounter.com/) / [Umami](https://umami.is/)
 - [x] Social Links
 - [x] MathJax Rendering
 - [x] Taxonomies
@@ -53,10 +55,14 @@ Modern and minimalistic blog theme powered by [Zola](https://getzola.org). See a
 - [x] Custom homepage
 - [x] Comments
 - [x] Search
+- [x] RSS feeds
+- [x] Mermaid diagram support
+- [x] Table of Contents
 
 ## Installation
 
 1. Download the theme
+
 ```
 git submodule add https://github.com/not-matthias/apollo themes/apollo
 ```
@@ -87,7 +93,7 @@ cp -r themes/apollo/content/* content/
 
 ## Configuration
 
-You can find all the configuration options [here](./content/posts/configuration.md)
+Checkout all the [options you can configure](./content/posts/configuration.md) and the [example pages](./content/posts/).
 
 ## References
 
